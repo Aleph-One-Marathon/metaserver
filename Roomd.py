@@ -106,7 +106,7 @@ class Roomd(MetaProtocol):
     if uname is None:
       self.sendPacket(RoomMessagePacket("Tired of being a guest? Sign up at: http://metaserver.lhowon.org"))
     else:
-      self.sendPacket(RoomMessagePacket("Bugs? Suggestions? http://metaserver.lhowon.org/contact")
+      self.sendPacket(RoomMessagePacket("Bugs? Suggestions? http://metaserver.lhowon.org/contact"))
     
     # announce new player to everyone else
     self.sendPlayerList(self.user_id, 0 - self.user_id, self.VERB_ADD)
