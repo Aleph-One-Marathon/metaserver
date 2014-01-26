@@ -1,3 +1,21 @@
+# Copyright (C) 2014 and beyond by Jeremiah Morris
+# and contributing developers.
+#
+# This file is part of Metaserver.
+#
+# Metaserver is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# Metaserver is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with Metaserver. If not, see <http://www.gnu.org/licenses/>.
+
 from twisted.internet.protocol import Factory
 from twisted.python import log
 from MetaProtocol import MetaProtocol
@@ -86,10 +104,9 @@ class Roomd(MetaProtocol):
     # MOTD
     uname = self.user_info['username']
     if uname is None:
-      self.sendPacket(RoomMessagePacket("Welcome to the Aleph One metaserver!"))
       self.sendPacket(RoomMessagePacket("Tired of being a guest? Sign up at: http://metaserver.lhowon.org"))
     else:
-      self.sendPacket(RoomMessagePacket("Welcome back, %s!" % uname))
+      self.sendPacket(RoomMessagePacket("Bugs? Suggestions? http://metaserver.lhowon.org/contact")
     
     # announce new player to everyone else
     self.sendPlayerList(self.user_id, 0 - self.user_id, self.VERB_ADD)
