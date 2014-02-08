@@ -229,6 +229,9 @@ class UserdFactory(Factory):
       'game' : None,
       'player_info' : None,
       'visible' : True,
+      'in_game' : False,
+      'afk' : None,
+      'action_timer' : -1,
       'token' : token }
     return uid, token
 

@@ -98,15 +98,16 @@ class Roomd(MetaProtocol):
     self.logEvent('login', pprint.pformat(vars(self.user_info['player_info'])))
     self.state = self.LOGGED_IN
     self.deaf = False
+    self.user_info['in_game'] = False
     self.sendPacket(RoomLoginSuccessfulPacket(self.user_id))
     self.sendMessage(MessagePacket.LOGIN_SUCCESSFUL)
     
     # MOTD
     uname = self.user_info['username']
     if uname is None:
-      self.sendPacket(RoomMessagePacket("Tired of being a guest? Sign up at: http://metaserver.lhowon.org"))
+      self.sendRoomMessage("Tired of being a guest? Sign up at: http://metaserver.lhowon.org")
     else:
-      self.sendPacket(RoomMessagePacket("Bugs? Suggestions? http://metaserver.lhowon.org/contact"))
+      self.sendRoomMessage("Bugs? Suggestions? http://metaserver.lhowon.org/contact")
     
     # announce new player to everyone else
     self.sendPlayerList(self.user_id, 0 - self.user_id, self.VERB_ADD)
@@ -121,12 +122,17 @@ class Roomd(MetaProtocol):
     if self.state != self.LOGGED_IN:
       self.sendMessage(MessagePacket.NOT_LOGGED_IN)
       return False
+    go_deaf = False
     if packet.deaf > 0:
-      self.logEvent('enter game')
-      self.deaf = True
-    else:
-      self.logEvent('leave game')
-      self.deaf = False
+      go_deaf = True
+    if self.deaf != go_deaf:
+      self.deaf = go_deaf
+      self.user_info['in_game'] = True
+      if go_deaf:
+        self.logEvent('enter game')
+      else:
+        self.logEvent('leave game')
+      self.sendPlayerList(self.user_id, 0, self.VERB_CHANGE)
     return True
   
   def handleCreateGamePacket(self, packet):
@@ -181,9 +187,10 @@ class Roomd(MetaProtocol):
     if packet.sender_id != self.user_id:
       self.sendMessage(MessagePacket.SYNTAX_ERROR)
       return False
-    
-    self.logChat(packet.message)
-    self.sendPacketToRoom(OutgoingChatPacket(self.user_info, packet.message))
+    self.userActive()
+    if not self.handleChatCommand(packet.message):
+      self.logChat(packet.message)
+      self.sendPacketToRoom(OutgoingChatPacket(self.user_info, packet.message))
     return True
   
   def handleIncomingPrivateMessagePacket(self, packet):
@@ -193,16 +200,18 @@ class Roomd(MetaProtocol):
     if packet.sender_id != self.user_id or packet.header_target_id != packet.target_id:
       self.sendMessage(MessagePacket.SYNTAX_ERROR)
       return False
+    self.userActive()
     if packet.target_id not in self.globals['users'] or self.globals['users'][packet.target_id]['roomd_connection'] is None:
       self.sendMessage(MessagePacket.NOT_IN_ROOM)
       return True
     
-    out = OutgoingPrivateMessagePacket(self.user_info, packet.target_id, packet.message)
-    target = self.globals['users'][packet.target_id]['roomd_connection']
-    if not target.deaf:
-      target.sendPacket(out)
-    if packet.echo and not self.deaf:
-      self.sendPacket(out)
+    if not self.handleChatCommand(packet.message, self.globals['users'][packet.target_id]):
+      out = OutgoingPrivateMessagePacket(self.user_info, packet.target_id, packet.message)
+      target = self.globals['users'][packet.target_id]['roomd_connection']
+      if not target.deaf:
+        target.sendPacket(out)
+      if packet.echo and not self.deaf:
+        self.sendPacket(out)
     return True
   
   def handleLogoutPacket(self, packet):
@@ -223,6 +232,9 @@ class Roomd(MetaProtocol):
     self.userd.cleanUser(self.user_id)
     self.userd.debugGlobals()
 
+  def sendRoomMessage(self, message):
+    self.sendPacket(RoomMessagePacket(message))
+  
   def sendPlayerList(self, send, recip, verb):
     send_list = self.buildSendList('users', send)
     if len(send_list) > 0:
@@ -281,6 +293,60 @@ class Roomd(MetaProtocol):
   
   def reportDbError(self, failure):
     log.msg("Database failure: %s" % str(failure))
+  
+  def userActive(self):
+    if self.user_info['afk'] is not None:
+      self.user_info['afk'] = None
+      self.sendPlayerList(self.user_id, 0, self.VERB_CHANGE)
+      
+  def handleChatCommand(self, message, target=None):
+    if not message.startswith("."):
+      return False
+    words = message.split()
+    if words[0] == ".afk":
+      away_msg = "afk"
+      if len(words) > 1:
+        away_msg = ' '.join(words[1:])
+      self.user_info['afk'] = away_msg
+      self.sendPlayerList(self.user_id, 0, self.VERB_CHANGE)
+    elif words[0] == ".back":
+      pass # userActive() already called when message came in
+    elif words[0] == ".caste" or words[0] == ".info":
+      if target is None:
+        self.sendRoomMessage("No user selected")
+      else:
+        if target['username'] is None:
+          self.sendRoomMessage(target['chatname'] + " is a guest")
+        else:
+          self.sendRoomMessage(target['chatname'] + " is registered as \"" + target['username'] + "\"")
+    elif words[0] == ".help":
+      self.sendCommandHelp()
+    elif words[0] == ".action" or words[0] == ".me":
+      if len(words) < 2:
+        self.sendRoomMessage("A message is required for " + words[0])
+      else:
+        cur_time = time.time()
+        if cur_time < self.user_info['action_timer']:
+          self.sendRoomMessage("Please wait 15 seconds between " + words[0] + " commands")
+        else:
+          self.user_info['action_timer'] = cur_time + 15
+          self.sendPacketToRoom(RoomMessagePacket(self.user_info['chatname'] + ' ' + ' '.join(words[1:])))
+    elif words[0] == ".credits" or words[0] == ".about":
+      self.sendRoomMessage("Aleph One Metaserver - http://metaserver.lhowon.org/")
+    else:
+      self.sendRoomMessage("Unknown command: " + words[0])
+      self.sendCommandHelp()
+      
+    return True
+  
+  def sendCommandHelp(self):
+    self.sendRoomMessage("Command list:")
+    self.sendRoomMessage(".about/.credits - about the server")
+    self.sendRoomMessage(".action/.me [message] - narrate yourself")
+    self.sendRoomMessage(".afk [away message] - set your away status")
+    self.sendRoomMessage(".back - cancels .afk")
+    self.sendRoomMessage(".caste/.info - info about selected user")
+    self.sendRoomMessage(".help - this list of commands")
   
   
 class RoomdFactory(Factory):
