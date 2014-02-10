@@ -204,6 +204,7 @@ class StartGamePacket:
   
   def __init__(self, data):
     self.game_time, = self._fmt.unpack_from(data)
+    self.game_time /= 30
 
 class RemoveGamePacket:
   code = 105

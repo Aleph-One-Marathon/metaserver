@@ -167,7 +167,7 @@ class Roomd(MetaProtocol):
     self.game_info['start_time'] = time.time()
     if packet.game_time > 0:
       self.game_info['time_left'] = packet.game_time
-    # no broadcast - Aleph One handles this through create-game data
+    self.sendGameList(self.game_info['game_id'], 0, self.VERB_CHANGE)
     return True
   
   def handleRemoveGamePacket(self, packet):
