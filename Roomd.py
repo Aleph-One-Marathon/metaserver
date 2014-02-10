@@ -178,6 +178,7 @@ class Roomd(MetaProtocol):
       self.logEvent('remove game')
       self.sendGameList(self.game_info['game_id'], 0, self.VERB_DELETE)
       self.userd.expireGame(self.game_info['game_id'])
+      self.game_info = None
     return True
   
   def handleIncomingChatPacket(self, packet):
