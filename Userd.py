@@ -162,7 +162,7 @@ class UserdFactory(Factory):
   MIN_GAME_ID = 10000
   MAX_GAME_ID = 60000
   
-  def __init__(self, roomd_host=None, roomd_port=6335, dbpool=None):
+  def __init__(self, roomd_host=None, roomd_port=6335, options=None, dbpool=None):
 #     Factory.__init__(self)
     self.globals = {
       'users': {},
@@ -173,6 +173,7 @@ class UserdFactory(Factory):
     self.last_game_id = 40000
     self.roomd_host = roomd_host
     self.roomd_port = roomd_port
+    self.options = options
     self.dbpool = dbpool
   
   def buildProtocol(self, addr):

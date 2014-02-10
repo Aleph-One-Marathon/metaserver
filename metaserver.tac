@@ -56,10 +56,13 @@ def getMetaService():
   get_strings(config, 'ports', srvopts, ['roomd_host'])
   get_ints(config, 'ports', srvopts, ['roomd_port', 'userd_port'])
   
+  othopts = { 'log_events' : 1, 'log_chat' : 1 }
+  get_ints(config, 'other', othopts, ['log_events', 'log_chat'])
+  
   ## Factory setup
   
-  ufac = UserdFactory(srvopts['roomd_host'], srvopts['roomd_port'], dbpool)
-  rfac = RoomdFactory(ufac)
+  ufac = UserdFactory(srvopts['roomd_host'], srvopts['roomd_port'], othopts, dbpool)
+  rfac = RoomdFactory(ufac, othopts)
 
   ## Service setup
   metaService = service.MultiService()

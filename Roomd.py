@@ -43,6 +43,8 @@ class Roomd(MetaProtocol):
     self.user_info = None
     self.game_info = None
     self.dbpool = self.userd.dbpool
+    self.log_events = True if self.factory.options['log_events'] > 0 else False
+    self.log_chat = True if self.factory.options['log_chat'] > 0 else False
   
   def packetReceived(self, packet):  
     if isinstance(packet, RoomLoginPacket):
@@ -277,24 +279,26 @@ class Roomd(MetaProtocol):
             conn.sendPacket(packet)
 
   def logChat(self, message):
-    deferred = self.dbpool.runOperation("""
-      INSERT INTO chatlog
-      (event_date, username, chatname, color_r, color_g, color_b, message)
-      VALUES (NOW(), %s, %s, %s, %s, %s, %s)""",
-      (self.user_info['username'], self.user_info['chatname'],
-      self.user_info['player_info'].player_color[0],
-      self.user_info['player_info'].player_color[1],
-      self.user_info['player_info'].player_color[2],
-      message))
-    deferred.addErrback(self.reportDbError)
+    if self.log_chat:
+      deferred = self.dbpool.runOperation("""
+        INSERT INTO chatlog
+        (event_date, username, chatname, color_r, color_g, color_b, message)
+        VALUES (NOW(), %s, %s, %s, %s, %s, %s)""",
+        (self.user_info['username'], self.user_info['chatname'],
+        self.user_info['player_info'].player_color[0],
+        self.user_info['player_info'].player_color[1],
+        self.user_info['player_info'].player_color[2],
+        message))
+      deferred.addErrback(self.reportDbError)
   
   def logEvent(self, type, data=None):
-    deferred = self.dbpool.runOperation("""
-      INSERT INTO eventlog
-      (event_date, event_type, username, user_id, extradata)
-      VALUES (NOW(), %s, %s, %s, %s)""",
-      (type, self.user_info['username'], self.user_id, data))
-    deferred.addErrback(self.reportDbError)
+    if self.log_events:
+      deferred = self.dbpool.runOperation("""
+        INSERT INTO eventlog
+        (event_date, event_type, username, user_id, extradata)
+        VALUES (NOW(), %s, %s, %s, %s)""",
+        (type, self.user_info['username'], self.user_id, data))
+      deferred.addErrback(self.reportDbError)
   
   def reportDbError(self, failure):
     log.msg("Database failure: %s" % str(failure))
@@ -356,9 +360,10 @@ class Roomd(MetaProtocol):
   
 class RoomdFactory(Factory):
 
-  def __init__(self, userd_factory):
+  def __init__(self, userd_factory, options=None):
 #     Factory.__init__(self)
     self.userd_factory = userd_factory
+    self.options = options
   
   def buildProtocol(self, addr):
     return Roomd(self)

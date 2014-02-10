@@ -7,7 +7,7 @@ The `username` field must be unique. The `password` field contains a hash create
           password varchar(255),
           hide_in_room boolean );
 
-Two other tables are used for logging. Only INSERT statements are run; no selects or updates are done. Other fields, such as an auto-increment ID, may be added to the tables.
+Two other tables are used for logging. Only INSERT statements are run; no selects or updates are done. Other fields, such as an auto-increment ID, may be added to the tables. If logging is disabled in the config file, these tables do not need to be present.
 
         CREATE TABLE chatlog (
           event_date datetime,
