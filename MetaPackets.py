@@ -62,15 +62,18 @@ class RoomPlayerDataChunk:
     away_status = 0
     if user_info['in_game']:
       away_status = 1
-    flags = 0
-    if user_info['username'] is not None:
-      flags = 1
     color = user_info['player_info'].player_color
     team = user_info['player_info'].team_color
     
     if not user_info['in_game'] and user_info['afk'] is not None:
       away_status = 1
       chatname = '|i' + user_info['afk'] + '|p-' + chatname
+    
+    flags = 0
+    if not away_status:
+      flags += 1 << 14
+    if user_info['username'] is not None:
+      flags += 1 << 0
     
     return RoomPlayerDataChunk._fmt.pack(verb, flags, user_info['user_id'], 40 + len(chatname), away_status, color[0], color[1], color[2], team[0], team[1], team[2]) + chatname + '\x00\x00'
 
