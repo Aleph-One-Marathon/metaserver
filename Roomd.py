@@ -343,8 +343,8 @@ class Roomd(MetaProtocol):
     elif words[0] == ".credits" or words[0] == ".about":
       self.sendRoomMessage("Aleph One Metaserver - http://metaserver.lhowon.org/")
     else:
-      self.sendRoomMessage("Unknown command: " + words[0])
-      self.sendCommandHelp()
+      self.sendRoomMessage("Unknown command: " + words[0] + " - for command list, type: .help")
+      # self.sendCommandHelp()
       
     return True
   
