@@ -189,9 +189,11 @@ class Roomd(MetaProtocol):
       self.sendMessage(MessagePacket.SYNTAX_ERROR)
       return False
     self.userActive()
-    if not self.handleChatCommand(packet.message):
-      self.logChat(packet.message)
-      self.sendPacketToRoom(OutgoingChatPacket(self.user_info, packet.message))
+    trimmed = packet.message.strip()
+    if trimmed != '':
+      if not self.handleChatCommand(trimmed):
+        self.logChat(trimmed)
+        self.sendPacketToRoom(OutgoingChatPacket(self.user_info, trimmed))
     return True
   
   def handleIncomingPrivateMessagePacket(self, packet):
@@ -206,13 +208,15 @@ class Roomd(MetaProtocol):
       self.sendMessage(MessagePacket.NOT_IN_ROOM)
       return True
     
-    if not self.handleChatCommand(packet.message, self.globals['users'][packet.target_id]):
-      out = OutgoingPrivateMessagePacket(self.user_info, packet.target_id, packet.message)
-      target = self.globals['users'][packet.target_id]['roomd_connection']
-      if not target.deaf:
-        target.sendPacket(out)
-      if packet.echo and not self.deaf:
-        self.sendPacket(out)
+    trimmed = packet.message.strip()
+    if trimmed != '':
+      if not self.handleChatCommand(trimmed, self.globals['users'][packet.target_id]):
+        out = OutgoingPrivateMessagePacket(self.user_info, packet.target_id, trimmed)
+        target = self.globals['users'][packet.target_id]['roomd_connection']
+        if not target.deaf:
+          target.sendPacket(out)
+        if packet.echo and not self.deaf:
+          self.sendPacket(out)
     return True
   
   def handleLogoutPacket(self, packet):
