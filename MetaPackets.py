@@ -69,9 +69,14 @@ class RoomPlayerDataChunk:
       away_status = 1
       chatname = '|i' + user_info['afk'] + '|p-' + chatname
     
+#     if not away_status and user_info['moderator']:
+#       chatname = chr(0xe1) + ' ' + chatname
+    
     flags = 0
     if not away_status:
       flags += 1 << 14
+    if user_info['moderator']:
+      flags += 1 << 12
     if user_info['username'] is not None:
       flags += 1 << 0
     

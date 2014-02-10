@@ -98,7 +98,7 @@ class Userd(MetaProtocol):
       return False
     packet.decode_password(0, self.seed)
     self.state = self.NEED_PWHASH
-    deferred = self.dbpool.runQuery("SELECT password, hide_in_room FROM user WHERE BINARY username = %s", self.user_info['username'])
+    deferred = self.dbpool.runQuery("SELECT password, hide_in_room, moderator, sort_order FROM user WHERE BINARY username = %s", self.user_info['username'])
     deferred.addCallback(self.passwordLookupResult, packet.password)
     deferred.addErrback(self.passwordLookupFailure)
     return True
@@ -122,6 +122,10 @@ class Userd(MetaProtocol):
     self.state = self.NEED_VERSION
     if rs[0][1]:
       self.user_info['visible'] = False
+    if rs[0][2]:
+      self.user_info['moderator'] = True
+    if rs[0][3]:
+      self.user_info['sort_id'] = rs[0][3]
     self.sendPacket(AcceptPacket())
   
   def passwordLookupFailure(self, failure):
@@ -223,6 +227,7 @@ class UserdFactory(Factory):
     token = self.buildToken(uid)
     self.globals['users'][uid] = {
       'user_id' : uid,
+      'sort_id' : None,
       'userd_connection' : connection,
       'roomd_connection' : None,
       'username' : None,
@@ -232,6 +237,7 @@ class UserdFactory(Factory):
       'visible' : True,
       'in_game' : False,
       'afk' : None,
+      'moderator' : False,
       'action_timer' : -1,
       'token' : token }
     return uid, token

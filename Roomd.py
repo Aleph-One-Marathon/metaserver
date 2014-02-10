@@ -342,6 +342,15 @@ class Roomd(MetaProtocol):
           self.sendPacketToRoom(RoomMessagePacket(self.user_info['chatname'] + ' ' + ' '.join(words[1:])))
     elif words[0] == ".credits" or words[0] == ".about":
       self.sendRoomMessage("Aleph One Metaserver - http://metaserver.lhowon.org/")
+    elif words[0] == ".kick" and self.user_info['moderator']:
+      if target is None:
+        self.sendRoomMessage("No user selected")
+      elif target['roomd_connection']:
+        extra = ''
+        if target['username']:
+          extra = ' [' + target['username'] + ']'
+        self.logEvent('kick', target['chatname'] + extra)
+        target['roomd_connection'].transport.loseConnection()
     else:
       self.sendRoomMessage("Unknown command: " + words[0] + " - for command list, type: .help")
       # self.sendCommandHelp()
@@ -356,6 +365,9 @@ class Roomd(MetaProtocol):
     self.sendRoomMessage(".back - cancels .afk")
     self.sendRoomMessage(".caste/.info - info about selected user")
     self.sendRoomMessage(".help - this list of commands")
+    if self.user_info['moderator']:
+      self.sendRoomMessage("Moderator-only commands:")
+      self.sendRoomMessage(".kick - disconnect the selected user")
   
   
 class RoomdFactory(Factory):
