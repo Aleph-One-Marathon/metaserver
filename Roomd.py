@@ -249,7 +249,7 @@ class Roomd(MetaProtocol):
   def buildSendList(self, which, send):
     send_list = []
     if send > 0:
-      if send in self.globals[which]:
+      if send in self.globals[which] and self.globals[which][send]['visible']:
         send_list.append(self.globals[which][send])
     else:
       for id, info in self.globals[which].iteritems():
