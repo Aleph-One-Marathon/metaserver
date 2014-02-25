@@ -45,6 +45,9 @@ class Roomd(MetaProtocol):
     self.dbpool = self.userd.dbpool
     self.log_events = True if self.factory.options['log_events'] > 0 else False
     self.log_chat = True if self.factory.options['log_chat'] > 0 else False
+    self.log_pm = True if self.factory.options['log_pm'] > 0 else False
+    if not self.log_chat:
+      self.log_pm = False
   
   def packetReceived(self, packet):  
     if isinstance(packet, RoomLoginPacket):
@@ -217,6 +220,7 @@ class Roomd(MetaProtocol):
         target = self.globals['users'][packet.target_id]['roomd_connection']
         if not target.deaf:
           target.sendPacket(out)
+          self.logPM(self.globals['users'][packet.target_id], trimmed)
         if packet.echo and not self.deaf:
           self.sendPacket(out)
     return True
@@ -243,6 +247,10 @@ class Roomd(MetaProtocol):
   def sendRoomMessage(self, message):
     self.sendPacket(RoomMessagePacket(message))
   
+  def broadcastRoomMessage(self, message):
+    self.logBroadcast(message)
+    self.sendPacketToRoom(RoomMessagePacket(message))
+
   def sendPlayerList(self, send, recip, verb):
     send_list = self.buildSendList('users', send)
     if len(send_list) > 0:
@@ -283,9 +291,54 @@ class Roomd(MetaProtocol):
     if self.log_chat:
       deferred = self.dbpool.runOperation("""
         INSERT INTO chatlog
-        (event_date, username, chatname, color_r, color_g, color_b, message)
-        VALUES (NOW(), %s, %s, %s, %s, %s, %s)""",
-        (self.user_info['username'], self.user_info['chatname'],
+        (event_date, event_type,
+         user_id, username, chatname,
+         color_r, color_g, color_b,
+         message)
+        VALUES (NOW(), %s,
+                %s, %s, %s,
+                %s, %s, %s,
+                %s)""",
+        ('chat',
+        self.user_info['user_id'], self.user_info['username'], self.user_info['chatname'],
+        self.user_info['player_info'].player_color[0],
+        self.user_info['player_info'].player_color[1],
+        self.user_info['player_info'].player_color[2],
+        message))
+      deferred.addErrback(self.reportDbError)
+  
+  def logBroadcast(self, message):
+    if self.log_chat:
+      deferred = self.dbpool.runOperation("""
+        INSERT INTO chatlog
+        (event_date, event_type,
+         user_id, username, chatname,
+         message)
+        VALUES (NOW(), %s,
+                %s, %s, %s,
+                %s)""",
+        ('broadcast',
+        self.user_info['user_id'], self.user_info['username'], self.user_info['chatname'],
+        message))
+      deferred.addErrback(self.reportDbError)
+  
+  def logPM(self, target, message):
+    if self.log_chat:
+      deferred = self.dbpool.runOperation("""
+        INSERT INTO chatlog
+        (event_date, event_type,
+         user_id, username, chatname,
+         target_user_id, target_username, target_chatname,
+         color_r, color_g, color_b,
+         message)
+        VALUES (NOW(), %s,
+                %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s,
+                %s)""",
+        ('pm',
+        self.user_info['user_id'], self.user_info['username'], self.user_info['chatname'],
+        target['user_id'], target['username'], target['chatname'],
         self.user_info['player_info'].player_color[0],
         self.user_info['player_info'].player_color[1],
         self.user_info['player_info'].player_color[2],
@@ -340,7 +393,7 @@ class Roomd(MetaProtocol):
           self.sendRoomMessage("Please wait 15 seconds between " + words[0] + " commands")
         else:
           self.user_info['action_timer'] = cur_time + 15
-          self.sendPacketToRoom(RoomMessagePacket(self.user_info['chatname'] + ' ' + ' '.join(words[1:])))
+          self.broadcastRoomMessage(self.user_info['chatname'] + ' ' + ' '.join(words[1:]))
     elif words[0] == ".credits" or words[0] == ".about":
       self.sendRoomMessage("Aleph One Metaserver - http://metaserver.lhowon.org/")
     elif words[0] == ".kick" and self.user_info['moderator']:
@@ -352,6 +405,7 @@ class Roomd(MetaProtocol):
           extra = ' [' + target['username'] + ']'
         self.logEvent('kick', target['chatname'] + extra)
         target['roomd_connection'].transport.loseConnection()
+        self.broadcastRoomMessage('Moderator ' + self.user_info['chatname'] + ' kicked ' + target['chatname'])
     else:
       self.sendRoomMessage("Unknown command: " + words[0] + " - for command list, type: .help")
       # self.sendCommandHelp()

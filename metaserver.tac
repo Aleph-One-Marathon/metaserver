@@ -56,8 +56,8 @@ def getMetaService():
   get_strings(config, 'ports', srvopts, ['roomd_host'])
   get_ints(config, 'ports', srvopts, ['roomd_port', 'userd_port'])
   
-  othopts = { 'log_events' : 1, 'log_chat' : 1 }
-  get_ints(config, 'other', othopts, ['log_events', 'log_chat'])
+  othopts = { 'log_events' : 1, 'log_chat' : 1, 'log_pm' : 1 }
+  get_ints(config, 'other', othopts, ['log_events', 'log_chat', 'log_pm'])
   
   ## Factory setup
   

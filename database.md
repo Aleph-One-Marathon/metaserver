@@ -17,11 +17,16 @@ Two other tables are used for logging. Only INSERT statements are run; no select
 
         CREATE TABLE chatlog (
           event_date datetime,
+          event_type varchar(64),
+          user_id int,
           username varchar(255),
           chatname varchar(255),
           color_r int unsigned,
           color_g int unsigned,
           color_b int unsigned,
+          target_user_id int,
+          target_username varchar(255),
+          target_chatname varchar(255),
           message text );
         
         CREATE TABLE eventlog (
