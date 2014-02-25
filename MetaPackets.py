@@ -80,7 +80,11 @@ class RoomPlayerDataChunk:
     if user_info['username'] is not None:
       flags += 1 << 0
     
-    return RoomPlayerDataChunk._fmt.pack(verb, flags, user_info['user_id'], 40 + len(chatname), away_status, color[0], color[1], color[2], team[0], team[1], team[2]) + chatname + '\x00\x00'
+    teamname = user_info['username']
+    if teamname is None:
+      teamname = ''
+    
+    return RoomPlayerDataChunk._fmt.pack(verb, flags, user_info['user_id'], 40 + len(chatname) + len(teamname), away_status, color[0], color[1], color[2], team[0], team[1], team[2]) + chatname + '\x00' + teamname + '\x00'
 
 class GameDataChunk:
   _fmt = struct.Struct('>L4sHBxlLH10x')
