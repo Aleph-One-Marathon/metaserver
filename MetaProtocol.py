@@ -41,7 +41,7 @@ class MetaProtocol(Protocol, TimeoutMixin):
     self.setTimeout(self.TIMEOUT)
   
   def connectionLost(self, reason):
-    log.msg("closed connection")
+    log.msg("closed connection: %s" % reason)
     self.setTimeout(None)
   
   def resetTimeout(self):
