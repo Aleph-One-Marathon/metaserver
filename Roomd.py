@@ -228,7 +228,8 @@ class Roomd(MetaProtocol):
 
   def connectionLost(self, reason):
     MetaProtocol.connectionLost(self, reason)
-    self.user_info['roomd_connection'] = None
+    if self.user_info is not None:
+      self.user_info['roomd_connection'] = None
     if self.state == self.LOGGED_IN:
       if self.game_info is not None:
         self.logEvent('remove game')
