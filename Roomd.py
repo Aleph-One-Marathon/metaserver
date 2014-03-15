@@ -380,6 +380,8 @@ class Roomd(MetaProtocol):
       else:
         if target['username'] is None:
           self.sendRoomMessage(target['chatname'] + " is a guest")
+        elif target['moderator']:
+          self.sendRoomMessage(target['chatname'] + " is the moderator \"" + target['username'] + "\"")
         else:
           self.sendRoomMessage(target['chatname'] + " is registered as \"" + target['username'] + "\"")
     elif words[0] == ".help":
