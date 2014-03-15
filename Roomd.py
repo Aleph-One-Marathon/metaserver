@@ -44,6 +44,7 @@ class Roomd(MetaProtocol):
     self.game_info = None
     self.dbpool = self.userd.dbpool
     self.log_events = True if self.factory.options['log_events'] > 0 else False
+    self.log_logindetail = True if self.factory.options['log_logindetail'] > 0 else False
     self.log_chat = True if self.factory.options['log_chat'] > 0 else False
     self.log_pm = True if self.factory.options['log_pm'] > 0 else False
     if not self.log_chat:
@@ -101,6 +102,7 @@ class Roomd(MetaProtocol):
     # we actually ignore the data; we kept it from userd
     # just log them in
     self.logEvent('login', pprint.pformat(vars(self.user_info['player_info'])))
+    self.logLogin()
     self.state = self.LOGGED_IN
     self.deaf = False
     self.user_info['in_game'] = False
@@ -352,6 +354,29 @@ class Roomd(MetaProtocol):
         (event_date, event_type, username, user_id, extradata)
         VALUES (NOW(), %s, %s, %s, %s)""",
         (type, self.user_info['username'], self.user_id, data))
+      deferred.addErrback(self.reportDbError)
+  
+  def logLogin(self):
+    if self.log_logindetail and self.user_info['visible']:
+      deferred = self.dbpool.runOperation("""
+        INSERT INTO logindetail
+        (event_date, username, user_id, chatname,
+         color_r, color_g, color_b,
+         team_color_r, team_color_g, team_color_b,
+         build_date, platform_type)
+        VALUES(NOW(), %s, %s, %s,
+               %s, %s, %s,
+               %s, %s, %s,
+               STR_TO_DATE(%s, "%%b %%e %%Y %%T"), %s)""",
+        (self.user_info['username'], self.user_id, self.user_info['chatname'],
+         self.user_info['player_info'].player_color[0],
+         self.user_info['player_info'].player_color[1],
+         self.user_info['player_info'].player_color[2],
+         self.user_info['player_info'].team_color[0],
+         self.user_info['player_info'].team_color[1],
+         self.user_info['player_info'].team_color[2],
+         self.user_info['player_info'].build_date + " " + self.user_info['player_info'].build_time,
+         self.user_info['player_info'].platform_type))
       deferred.addErrback(self.reportDbError)
   
   def reportDbError(self, failure):

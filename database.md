@@ -37,3 +37,17 @@ Aleph One currently uses MacRoman character encoding for non-ASCII text. The ser
           username varchar(255),
           user_id int,
           extradata blob );
+
+        CREATE TABLE logindetail (
+          event_date datetime,
+          username varchar(255),
+          user_id int,
+          chatname varbinary(255),
+          color_r int unsigned,
+          color_g int unsigned,
+          color_b int unsigned,
+          team_color_r int unsigned,
+          team_color_g int unsigned,
+          team_color_b int unsigned,
+          build_date datetime,
+          platform_type int unsigned );
