@@ -5,13 +5,17 @@ Non-guest users are looked up by username in the `user` table. Only SELECT queri
 * The `password` field contains a hash created by the [phpass](http://www.openwall.com/phpass/) framework.
 * The `moderator` field grants access to moderator-only commands, like `.gag` or `.kick`.
 * The `hide_in_room` field, when set, prevents the user from being announced in player lists. This can be used to suppress join and leave messages from bots or system-monitoring tools.
+* The `meta_login_token` field is used instead of `password` during HTTPS login authentication. The code that accepts an HTTPS request and populates this field is not provided here; see the Aleph One source code for the client-side API. 
+* The `meta_login_token_date` field stores the time `meta_login_token` was populated. The metaserver rejects logins using a token created more than 60 seconds ago.
 
         CREATE TABLE user (
           sort_order int,
           username varchar(255),
           password varchar(255),
           moderator boolean,
-          hide_in_room boolean );
+          hide_in_room boolean,
+          meta_login_token varbinary(16),
+          meta_login_token_date datetime );
 
 Other tables are used for logging. Only INSERT statements are run; no selects or updates are done. Other fields, such as an auto-increment ID, may be added to the tables. If logging is disabled in the config file, these tables do not need to be present.
 

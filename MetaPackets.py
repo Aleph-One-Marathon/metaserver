@@ -166,7 +166,12 @@ class PasswordResponsePacket:
     self.password_data, = self._fmt.unpack_from(data)
       
   def decode_password(self, auth_type=0, salt=''):
-    self.password = self.password_data.rstrip('\x00')  # only support plaintext
+    if auth_type == 0:  # plaintext
+      self.password = self.password_data.rstrip('\x00')
+    elif auth_type == 4:  # HTTPS
+      self.password = self.password_data
+    else:  # unrecognized
+      pass
 
 class LocalizationPacket:
   code = 115

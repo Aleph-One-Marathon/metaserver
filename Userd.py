@@ -89,19 +89,61 @@ class Userd(MetaProtocol):
       self.user_info['chatname'] = packet.player_name
       self.state = self.NEED_PASSWORD
       self.seed = os.urandom(16)
-      self.sendPacket(SeedPacket(0, self.seed))
+      self.seed_auth = 0
+      if packet.max_authentication >= 4:
+        self.seed_auth = 4
+      self.sendPacket(SeedPacket(self.seed_auth, self.seed))
     return True
   
   def handlePasswordResponsePacket(self, packet):
     if self.state != self.NEED_PASSWORD:
       self.sendMessage(MessagePacket.SYNTAX_ERROR)
       return False
-    packet.decode_password(0, self.seed)
+    packet.decode_password(self.seed_auth, self.seed)
     self.state = self.NEED_PWHASH
-    deferred = self.dbpool.runQuery("SELECT password, hide_in_room, moderator, sort_order FROM user WHERE BINARY username = %s", self.user_info['username'])
-    deferred.addCallback(self.passwordLookupResult, packet.password)
-    deferred.addErrback(self.passwordLookupFailure)
+    if self.seed_auth == 0:
+      deferred = self.dbpool.runQuery("SELECT password, hide_in_room, moderator, sort_order FROM user WHERE BINARY username = %s", self.user_info['username'])
+      deferred.addCallback(self.passwordLookupResult, packet.password)
+      deferred.addErrback(self.passwordLookupFailure)
+    elif self.seed_auth == 4:
+      deferred = self.dbpool.runQuery("SELECT meta_login_token, meta_login_token_date + INTERVAL 60 SECOND > NOW(), hide_in_room, moderator, sort_order FROM user WHERE BINARY username = %s", self.user_info['username'])
+      deferred.addCallback(self.passwordTokenResult, packet.password)
+      deferred.addErrback(self.passwordLookupFailure)
+    else:
+      print "Authentication type not handled: %s" % self.seed_auth
+      return False
     return True
+  
+  def passwordTokenResult(self, rs, saved_pw):
+    if self.state != self.NEED_PWHASH:
+      print "Password lookup called in wrong context"
+      self.transport.loseConnection()
+      return
+    if len(rs) < 1:
+      print "Username not found in database: %s" % self.user_info['username']
+      self.sendMessage(MessagePacket.BAD_USER)
+      self.transport.loseConnection()
+      return
+    if rs[0][0] != saved_pw:
+      print "Password check failed for %s" % self.user_info['username']
+      self.sendMessage(MessagePacket.BAD_USER)
+      self.transport.loseConnection()
+      return
+    if not rs[0][1]:
+      print "Token out of date for %s" % self.user_info['username']
+      self.sendMessage(MessagePacket.BAD_USER)
+      self.transport.loseConnection()
+      return
+    print "Password accepted for %s" % self.user_info['username']
+    self.dbpool.runOperation("UPDATE user SET meta_login_token = NULL, meta_login_token_date = NULL WHERE BINARY username = %s", self.user_info['username'])
+    self.state = self.NEED_VERSION
+    if rs[0][2]:
+      self.user_info['visible'] = False
+    if rs[0][3]:
+      self.user_info['moderator'] = True
+    if rs[0][4]:
+      self.user_info['sort_id'] = rs[0][4]
+    self.sendPacket(AcceptPacket())
   
   def passwordLookupResult(self, rs, saved_pw):
     if self.state != self.NEED_PWHASH:
