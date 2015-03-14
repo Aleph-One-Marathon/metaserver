@@ -83,6 +83,8 @@ class Roomd(MetaProtocol):
     uname = self.user_info['username']
     if uname is None:
       uname = 'guest'
+    if packet.username == '':
+      packet.username = 'guest'
     if uname != packet.username:
       self.sendMessage(MessagePacket.BAD_USER)
       return False
