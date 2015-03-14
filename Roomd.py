@@ -136,7 +136,7 @@ class Roomd(MetaProtocol):
       self.deaf = go_deaf
       self.user_info['in_game'] = True
       if go_deaf:
-        self.logEvent('enter game')
+        self.logEvent('enter game', packet.session_id.encode('hex'))
       else:
         self.logEvent('leave game')
       self.sendPlayerList(self.user_id, 0, self.VERB_CHANGE)

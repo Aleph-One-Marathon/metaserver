@@ -201,6 +201,7 @@ class PlayerModePacket:
   
   def __init__(self, data):
     self.deaf, = self._fmt.unpack_from(data)
+    self.session_id = data[self._fmt.size:len(data)]
 
 class CreateGamePacket:
   code = 104
