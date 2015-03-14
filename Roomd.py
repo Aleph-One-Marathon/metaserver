@@ -172,8 +172,8 @@ class Roomd(MetaProtocol):
     
     self.logEvent('start game', packet.game_time)
     self.game_info['start_time'] = time.time()
-    if packet.game_time > 0:
-      self.game_info['time_left'] = packet.game_time
+    if packet.game_time > 0 and packet.game_time < 7 * 24 * 3600 * 30:
+      self.game_info['time_left'] = packet.game_time / 30
     self.sendGameList(self.game_info['game_id'], 0, self.VERB_CHANGE)
     return True
   
