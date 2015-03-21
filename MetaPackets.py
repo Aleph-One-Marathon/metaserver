@@ -52,53 +52,6 @@ class PlayerDataChunk:
     object.team_color = [ sec_r, sec_g, sec_b ]
     
     object.player_name, object.team_name, stringlen = unpack_strings(data, 2, offset + PlayerDataChunk._fmt.size)
-
-class RoomPlayerDataChunk:
-  _fmt = struct.Struct('>HH4xL6xH6xHHHH2xHHH20x')
-  
-  @staticmethod
-  def pack(user_info, verb):
-    chatname = user_info['chatname']
-    away_status = 0
-    if user_info['in_game']:
-      away_status = 1
-    color = user_info['player_info'].player_color
-    team = user_info['player_info'].team_color
-    
-    if not user_info['in_game'] and user_info['afk'] is not None:
-      away_status = 1
-      chatname = '|i' + user_info['afk'] + '|p-' + chatname
-    
-#     if not away_status and user_info['moderator']:
-#       chatname = chr(0xe1) + ' ' + chatname
-    
-    flags = 0
-    if not away_status:
-      flags += 1 << 14
-    if user_info['moderator']:
-      flags += 1 << 12
-    if user_info['username'] is not None:
-      flags += 1 << 0
-    
-    teamname = user_info['username']
-    if teamname is None:
-      teamname = ''
-    
-    return RoomPlayerDataChunk._fmt.pack(verb, flags, user_info['user_id'], 40 + len(chatname) + len(teamname), away_status, color[0], color[1], color[2], team[0], team[1], team[2]) + chatname + '\x00' + teamname + '\x00'
-
-class GameDataChunk:
-  _fmt = struct.Struct('>L4sHBxlLH10x')
-  
-  @staticmethod
-  def pack(game_info, verb):
-    game_data = game_info['game_data']
-    gametime = -1
-    if game_info['time_left'] is not None:
-      gametime = game_info['time_left']
-      if game_info['start_time'] is not None:
-        gametime -= time.time() - game_info['start_time']
-    
-    return GameDataChunk._fmt.pack(game_info['game_id'], socket.inet_aton(game_info['host']), game_info['port'], verb, gametime, game_info['user_id'], len(game_data)) + game_data
   
 class MessagePacket:
   code = 3
@@ -301,15 +254,7 @@ class PlayerListPacket:
   def __init__(self, player_list, verb):
     self.data = ''
     for user_info in player_list:
-      self.data += RoomPlayerDataChunk.pack(user_info, verb)
-
-class PlayerListPacket:
-  code = 1
-  
-  def __init__(self, player_list, verb):
-    self.data = ''
-    for user_info in player_list:
-      self.data += RoomPlayerDataChunk.pack(user_info, verb)
+      self.data += user_info.roomPlayerDataChunk(verb)
 
 class GameListPacket:
   code = 2
@@ -317,23 +262,23 @@ class GameListPacket:
   def __init__(self, game_list, verb):
     self.data = ''
     for game_info in game_list:
-      self.data += GameDataChunk.pack(game_info, verb)
+      self.data += game_info.dataChunk(verb)
 
 class OutgoingChatPacket:
   code = 200
   _fmt = struct.Struct('>HHHHH2xH2xLL')
   
   def __init__(self, user_info, message):
-    chatname = user_info['chatname']
-    color = user_info['player_info'].player_color
-    self.data = self._fmt.pack(0, 26 + len(chatname) + len(message), color[0], color[1], color[2], 0, user_info['user_id'], 0) + chatname + '\x00' + message + '\x00'
+    chatname = user_info.chatname
+    color = user_info.player_info.player_color
+    self.data = self._fmt.pack(0, 26 + len(chatname) + len(message), color[0], color[1], color[2], 0, user_info.user_id, 0) + chatname + '\x00' + message + '\x00'
 
 class OutgoingPrivateMessagePacket:
   code = 201
   _fmt = struct.Struct('>LLHHHHH2xH2xLL')
   
   def __init__(self, user_info, target_id, message):
-    chatname = user_info['chatname']
-    color = user_info['player_info'].player_color
-    self.data = self._fmt.pack(target_id, 1, 0, 26 + len(chatname) + len(message), color[0], color[1], color[2], 1, user_info['user_id'], target_id) + chatname + '\x00' + message + '\x00'
+    chatname = user_info.chatname
+    color = user_info.player_info.player_color
+    self.data = self._fmt.pack(target_id, 1, 0, 26 + len(chatname) + len(message), color[0], color[1], color[2], 1, user_info.user_id, target_id) + chatname + '\x00' + message + '\x00'
 

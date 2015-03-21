@@ -21,6 +21,8 @@ from twisted.internet import reactor
 from twisted.python import log
 from MetaProtocol import MetaProtocol
 from MetaPackets import *
+from GameInfo import GameInfo
+from UserInfo import UserInfo
 import uuid
 import os
 import phpass
@@ -75,9 +77,9 @@ class Userd(MetaProtocol):
       self.sendMessage(MessagePacket.SYNTAX_ERROR)
       return False
     
-    self.user_info['player_info'] = packet
+    self.user_info.player_info = packet
     if packet.username == 'guest' or packet.username == '':
-      self.user_info['chatname'] = '|iGuest|p ' + packet.player_name
+      self.user_info.chatname = '|iGuest|p ' + packet.player_name
       self.state = self.NEED_VERSION
       self.sendPacket(AcceptPacket())
     else:
@@ -85,8 +87,8 @@ class Userd(MetaProtocol):
         self.sendMessage(MessagePacket.USER_LOGGED_IN)
         return False
       self.globals['usernames'][packet.username] = self.user_id
-      self.user_info['username'] = packet.username
-      self.user_info['chatname'] = packet.player_name
+      self.user_info.username = packet.username
+      self.user_info.chatname = packet.player_name
       self.state = self.NEED_PASSWORD
       self.seed = os.urandom(16)
       self.seed_auth = 0
@@ -102,11 +104,11 @@ class Userd(MetaProtocol):
     packet.decode_password(self.seed_auth, self.seed)
     self.state = self.NEED_PWHASH
     if self.seed_auth == 0:
-      deferred = self.dbpool.runQuery("SELECT password, hide_in_room, moderator, sort_order FROM user WHERE BINARY username = %s", self.user_info['username'])
+      deferred = self.dbpool.runQuery("SELECT password, hide_in_room, moderator, sort_order FROM user WHERE BINARY username = %s", self.user_info.username)
       deferred.addCallback(self.passwordLookupResult, packet.password)
       deferred.addErrback(self.passwordLookupFailure)
     elif self.seed_auth == 4:
-      deferred = self.dbpool.runQuery("SELECT meta_login_token, meta_login_token_date + INTERVAL 60 SECOND > NOW(), hide_in_room, moderator, sort_order FROM user WHERE BINARY username = %s", self.user_info['username'])
+      deferred = self.dbpool.runQuery("SELECT meta_login_token, meta_login_token_date + INTERVAL 60 SECOND > NOW(), hide_in_room, moderator, sort_order FROM user WHERE BINARY username = %s", self.user_info.username)
       deferred.addCallback(self.passwordTokenResult, packet.password)
       deferred.addErrback(self.passwordLookupFailure)
     else:
@@ -120,29 +122,29 @@ class Userd(MetaProtocol):
       self.transport.loseConnection()
       return
     if len(rs) < 1:
-      print "Username not found in database: %s" % self.user_info['username']
+      print "Username not found in database: %s" % self.user_info.username
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
     if rs[0][0] != saved_pw:
-      print "Password check failed for %s" % self.user_info['username']
+      print "Password check failed for %s" % self.user_info.username
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
     if not rs[0][1]:
-      print "Token out of date for %s" % self.user_info['username']
+      print "Token out of date for %s" % self.user_info.username
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
-    print "Password accepted for %s" % self.user_info['username']
-    self.dbpool.runOperation("UPDATE user SET meta_login_token = NULL, meta_login_token_date = NULL WHERE BINARY username = %s", self.user_info['username'])
+    print "Password accepted for %s" % self.user_info.username
+    self.dbpool.runOperation("UPDATE user SET meta_login_token = NULL, meta_login_token_date = NULL WHERE BINARY username = %s", self.user_info.username)
     self.state = self.NEED_VERSION
     if rs[0][2]:
-      self.user_info['visible'] = False
+      self.user_info.visible = False
     if rs[0][3]:
-      self.user_info['moderator'] = True
+      self.user_info.moderator = True
     if rs[0][4]:
-      self.user_info['sort_id'] = rs[0][4]
+      self.user_info.sort_id = rs[0][4]
     self.sendPacket(AcceptPacket())
   
   def passwordLookupResult(self, rs, saved_pw):
@@ -151,23 +153,23 @@ class Userd(MetaProtocol):
       self.transport.loseConnection()
       return
     if len(rs) < 1:
-      print "Username not found in database: %s" % self.user_info['username']
+      print "Username not found in database: %s" % self.user_info.username
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
     if not self._hasher.check_password(saved_pw, rs[0][0]):
-      print "Password check failed for %s" % self.user_info['username']
+      print "Password check failed for %s" % self.user_info.username
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
-    print "Password accepted for %s" % self.user_info['username']
+    print "Password accepted for %s" % self.user_info.username
     self.state = self.NEED_VERSION
     if rs[0][1]:
-      self.user_info['visible'] = False
+      self.user_info.visible = False
     if rs[0][2]:
-      self.user_info['moderator'] = True
+      self.user_info.moderator = True
     if rs[0][3]:
-      self.user_info['sort_id'] = rs[0][3]
+      self.user_info.sort_id = rs[0][3]
     self.sendPacket(AcceptPacket())
   
   def passwordLookupFailure(self, failure):
@@ -192,8 +194,8 @@ class Userd(MetaProtocol):
     MetaProtocol.connectionLost(self, reason)
     if self.user_id in self.globals['users']:
       uinfo = self.globals['users'][self.user_id]
-      uinfo['userd_connection'] = None
-      token = uinfo['token']
+      uinfo.userd_connection = None
+      token = uinfo.token
       if self.state == self.LOGGED_IN:
         # give client time to connect to roomd
         reactor.callLater(self.TOKEN_TIMEOUT, self.factory.expireToken, token)
@@ -230,7 +232,7 @@ class UserdFactory(Factory):
     if tokeninfo is not None:
       uid = tokeninfo['user_id']
       if uid in self.globals['users']:
-        self.globals['users'][uid]['token'] = None
+        self.globals['users'][uid].token = None
         self.cleanUser(uid)
 
   def redeemToken(self, token):
@@ -239,7 +241,7 @@ class UserdFactory(Factory):
     if tokeninfo is not None:
       uid = tokeninfo['user_id']
       if uid in self.globals['users']:
-        self.globals['users'][uid]['token'] = None
+        self.globals['users'][uid].token = None
       if tokeninfo['active']:
         return uid
     return None
@@ -247,17 +249,17 @@ class UserdFactory(Factory):
   def expireGame(self, game_id):
     gameinfo = self.globals['games'].pop(game_id, None)
     if gameinfo is not None:
-      uid = gameinfo['user_id']
+      uid = gameinfo.user_id
       if uid in self.globals['users']:
-        self.globals['users'][uid]['game'] = None
+        self.globals['users'][uid].game = None
 
   def cleanUser(self, user_id):
     if user_id in self.globals['users']:
       uinfo = self.globals['users'][user_id]
-      if uinfo['userd_connection'] is None and uinfo['roomd_connection'] is None and uinfo['token'] is None:
-        if uinfo['username'] in self.globals['usernames']:
-          del self.globals['usernames'][uinfo['username']]
-        self.expireGame(uinfo['game'])
+      if uinfo.userd_connection is None and uinfo.roomd_connection is None and uinfo.token is None:
+        if uinfo.username in self.globals['usernames']:
+          del self.globals['usernames'][uinfo.username]
+        self.expireGame(uinfo.game)
         del self.globals['users'][user_id]
   
   def buildUserID(self, connection):
@@ -267,21 +269,7 @@ class UserdFactory(Factory):
     self.last_user_id = uid    
 
     token = self.buildToken(uid)
-    self.globals['users'][uid] = {
-      'user_id' : uid,
-      'sort_id' : None,
-      'userd_connection' : connection,
-      'roomd_connection' : None,
-      'username' : None,
-      'chatname' : None,
-      'game' : None,
-      'player_info' : None,
-      'visible' : True,
-      'in_game' : False,
-      'afk' : None,
-      'moderator' : False,
-      'action_timer' : -1,
-      'token' : token }
+    self.globals['users'][uid] = UserInfo(uid, connection, token)
     return uid, token
 
   def buildGameID(self, user_id):
@@ -290,16 +278,8 @@ class UserdFactory(Factory):
       gid = inc_wrap(gid, self.MIN_GAME_ID, self.MAX_GAME_ID)
     self.last_game_id = gid
     
-    self.globals['games'][gid] = {
-      'game_id' : gid,
-      'start_time' : None,
-      'time_left' : None,
-      'user_id' : user_id,
-      'host' : None,
-      'port' : None,
-      'visible' : True,
-      'game_data' : None }
-    self.globals['users'][user_id]['game'] = gid
+    self.globals['games'][gid] = GameInfo(gid, user_id)
+    self.globals['users'][user_id].game = gid
     return gid
   
   def buildToken(self, user_id):
@@ -333,12 +313,12 @@ class UserdFactory(Factory):
     
     numGames = 0
     numActiveGames = 0
-    for k, v in self.globals['games'].iteritems():
+    for k, ginfo in self.globals['games'].iteritems():
       numGames += 1
-      if v['start_time']:
+      if ginfo.start_time:
         numActiveGames += 1
-      if not v['user_id'] in self.globals['users']:
-        log.msg("Bad user id %d for game %s" % (v['user_id'], k))
+      if not ginfo.user_id in self.globals['users']:
+        log.msg("Bad user id %d for game %s" % (ginfo.user_id, k))
     log.msg("%d games (%d active)" % (numGames, numActiveGames))
     
     numUsers = 0
@@ -346,14 +326,14 @@ class UserdFactory(Factory):
     numInRoomd = 0
     numRegistered = 0
     seen_usernames = {}
-    for k, v in self.globals['users'].iteritems():
+    for k, uinfo in self.globals['users'].iteritems():
       numUsers += 1
-      if v['userd_connection']:
+      if uinfo.userd_connection:
         numInUserd += 1
-      if v['roomd_connection']:
+      if uinfo.roomd_connection:
         numInRoomd += 1
-      if v['username']:
-        name = v['username']
+      if uinfo.username:
+        name = uinfo.username
         numRegistered += 1
         if not name in self.globals['usernames']:
           log.msg("Unregistered username %s for user id %d" % (name, k))

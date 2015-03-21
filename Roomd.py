@@ -80,7 +80,7 @@ class Roomd(MetaProtocol):
       self.sendMessage(MessagePacket.NOT_LOGGED_IN)
       return False
     self.user_info = self.globals['users'][self.user_id]
-    uname = self.user_info['username']
+    uname = self.user_info.username
     if uname is None:
       uname = 'guest'
     if packet.username == '':
@@ -90,7 +90,7 @@ class Roomd(MetaProtocol):
       return False
     
     self.state = self.NEED_PLAYER_DATA
-    self.user_info['roomd_connection'] = self
+    self.user_info.roomd_connection = self
     return True
   
   def handlePlayerDataPacket(self, packet):
@@ -103,16 +103,16 @@ class Roomd(MetaProtocol):
     
     # we actually ignore the data; we kept it from userd
     # just log them in
-    self.logEvent('login', pprint.pformat(vars(self.user_info['player_info'])))
+    self.logEvent('login', pprint.pformat(vars(self.user_info.player_info)))
     self.logLogin()
     self.state = self.LOGGED_IN
     self.deaf = False
-    self.user_info['in_game'] = False
+    self.user_info.in_game = False
     self.sendPacket(RoomLoginSuccessfulPacket(self.user_id))
     self.sendMessage(MessagePacket.LOGIN_SUCCESSFUL)
     
     # MOTD
-    uname = self.user_info['username']
+    uname = self.user_info.username
     if uname is None:
       self.sendRoomMessage("Tired of being a guest? Sign up at: http://metaserver.lhowon.org")
     else:
@@ -136,7 +136,7 @@ class Roomd(MetaProtocol):
       go_deaf = True
     if self.deaf != go_deaf:
       self.deaf = go_deaf
-      self.user_info['in_game'] = True
+      self.user_info.in_game = True
       if go_deaf:
         self.logEvent('enter game', packet.session_id.encode('hex'))
       else:
@@ -154,14 +154,14 @@ class Roomd(MetaProtocol):
     if self.game_info is None:
       gid = self.userd.buildGameID(self.user_id)
       self.game_info = self.globals['games'][gid]
-      self.game_info['host'] = self.transport.getPeer().host
+      self.game_info.host = self.transport.getPeer().host
       verb = self.VERB_ADD
     
-    self.game_info['port'] = packet.port
-    self.game_info['game_data'] = packet.game_data
+    self.game_info.port = packet.port
+    self.game_info.game_data = packet.game_data
     
     # announce game to everyone
-    self.sendGameList(self.game_info['game_id'], 0, verb)
+    self.sendGameList(self.game_info.game_id, 0, verb)
     return True
   
   def handleStartGamePacket(self, packet):
@@ -173,10 +173,10 @@ class Roomd(MetaProtocol):
       return False
     
     self.logEvent('start game', packet.game_time)
-    self.game_info['start_time'] = time.time()
+    self.game_info.start_time = time.time()
     if packet.game_time > 0 and packet.game_time < 7 * 24 * 3600 * 30:
-      self.game_info['time_left'] = packet.game_time / 30
-    self.sendGameList(self.game_info['game_id'], 0, self.VERB_CHANGE)
+      self.game_info.time_left = packet.game_time / 30
+    self.sendGameList(self.game_info.game_id, 0, self.VERB_CHANGE)
     return True
   
   def handleRemoveGamePacket(self, packet):
@@ -185,8 +185,8 @@ class Roomd(MetaProtocol):
       return False
     if self.game_info is not None:
       self.logEvent('remove game')
-      self.sendGameList(self.game_info['game_id'], 0, self.VERB_DELETE)
-      self.userd.expireGame(self.game_info['game_id'])
+      self.sendGameList(self.game_info.game_id, 0, self.VERB_DELETE)
+      self.userd.expireGame(self.game_info.game_id)
       self.game_info = None
     return True
   
@@ -213,7 +213,7 @@ class Roomd(MetaProtocol):
       self.sendMessage(MessagePacket.SYNTAX_ERROR)
       return False
     self.userActive()
-    if packet.target_id not in self.globals['users'] or self.globals['users'][packet.target_id]['roomd_connection'] is None:
+    if packet.target_id not in self.globals['users'] or self.globals['users'][packet.target_id].roomd_connection is None:
       self.sendMessage(MessagePacket.NOT_IN_ROOM)
       return True
     
@@ -221,7 +221,7 @@ class Roomd(MetaProtocol):
     if trimmed != '':
       if not self.handleChatCommand(trimmed, self.globals['users'][packet.target_id]):
         out = OutgoingPrivateMessagePacket(self.user_info, packet.target_id, trimmed)
-        target = self.globals['users'][packet.target_id]['roomd_connection']
+        target = self.globals['users'][packet.target_id].roomd_connection
         if not target.deaf:
           target.sendPacket(out)
           self.logPM(self.globals['users'][packet.target_id], trimmed)
@@ -237,12 +237,12 @@ class Roomd(MetaProtocol):
   def connectionLost(self, reason):
     MetaProtocol.connectionLost(self, reason)
     if self.user_info is not None:
-      self.user_info['roomd_connection'] = None
+      self.user_info.roomd_connection = None
     if self.state == self.LOGGED_IN:
       if self.game_info is not None:
         self.logEvent('remove game')
-        self.sendGameList(self.game_info['game_id'], 0, self.VERB_DELETE)
-        self.userd.expireGame(self.game_info['game_id'])
+        self.sendGameList(self.game_info.game_id, 0, self.VERB_DELETE)
+        self.userd.expireGame(self.game_info.game_id)
       self.logEvent('logout')
       self.sendPlayerList(self.user_id, 0, self.VERB_DELETE)
     self.userd.cleanUser(self.user_id)
@@ -268,11 +268,11 @@ class Roomd(MetaProtocol):
   def buildSendList(self, which, send):
     send_list = []
     if send > 0:
-      if send in self.globals[which] and self.globals[which][send]['visible']:
+      if send in self.globals[which] and self.globals[which][send].visible:
         send_list.append(self.globals[which][send])
     else:
       for id, info in self.globals[which].iteritems():
-        if info['visible'] and not id == (0 - send):
+        if info.visible and not id == (0 - send):
           send_list.append(info)
     return send_list
     
@@ -281,13 +281,13 @@ class Roomd(MetaProtocol):
       return False
     if recip > 0:
       if recip in self.globals['users']:
-        conn = self.globals['users'][recip]['roomd_connection']
+        conn = self.globals['users'][recip].roomd_connection
         if conn is not None and not conn.deaf:
           conn.sendPacket(packet)
     else:
       for user_id, info in self.globals['users'].iteritems():
         if not user_id == (0 - recip):
-          conn = info['roomd_connection']
+          conn = info.roomd_connection
           if conn is not None and not conn.deaf:
             conn.sendPacket(packet)
 
@@ -304,10 +304,10 @@ class Roomd(MetaProtocol):
                 %s, %s, %s,
                 %s)""",
         ('chat',
-        self.user_info['user_id'], self.user_info['username'], self.user_info['chatname'],
-        self.user_info['player_info'].player_color[0],
-        self.user_info['player_info'].player_color[1],
-        self.user_info['player_info'].player_color[2],
+        self.user_info.user_id, self.user_info.username, self.user_info.chatname,
+        self.user_info.player_info.player_color[0],
+        self.user_info.player_info.player_color[1],
+        self.user_info.player_info.player_color[2],
         message))
       deferred.addErrback(self.reportDbError)
   
@@ -322,7 +322,7 @@ class Roomd(MetaProtocol):
                 %s, %s, %s,
                 %s)""",
         ('broadcast',
-        self.user_info['user_id'], self.user_info['username'], self.user_info['chatname'],
+        self.user_info.user_id, self.user_info.username, self.user_info.chatname,
         message))
       deferred.addErrback(self.reportDbError)
   
@@ -341,11 +341,11 @@ class Roomd(MetaProtocol):
                 %s, %s, %s,
                 %s)""",
         ('pm',
-        self.user_info['user_id'], self.user_info['username'], self.user_info['chatname'],
-        target['user_id'], target['username'], target['chatname'],
-        self.user_info['player_info'].player_color[0],
-        self.user_info['player_info'].player_color[1],
-        self.user_info['player_info'].player_color[2],
+        self.user_info.user_id, self.user_info.username, self.user_info.chatname,
+        target.user_id, target.username, target.chatname,
+        self.user_info.player_info.player_color[0],
+        self.user_info.player_info.player_color[1],
+        self.user_info.player_info.player_color[2],
         message))
       deferred.addErrback(self.reportDbError)
   
@@ -355,11 +355,11 @@ class Roomd(MetaProtocol):
         INSERT INTO eventlog
         (event_date, event_type, username, user_id, extradata)
         VALUES (NOW(), %s, %s, %s, %s)""",
-        (type, self.user_info['username'], self.user_id, data))
+        (type, self.user_info.username, self.user_id, data))
       deferred.addErrback(self.reportDbError)
   
   def logLogin(self):
-    if self.log_logindetail and self.user_info['visible']:
+    if self.log_logindetail and self.user_info.visible:
       deferred = self.dbpool.runOperation("""
         INSERT INTO logindetail
         (event_date, username, user_id, chatname,
@@ -370,23 +370,23 @@ class Roomd(MetaProtocol):
                %s, %s, %s,
                %s, %s, %s,
                STR_TO_DATE(%s, "%%b %%e %%Y %%T"), %s)""",
-        (self.user_info['username'], self.user_id, self.user_info['chatname'],
-         self.user_info['player_info'].player_color[0],
-         self.user_info['player_info'].player_color[1],
-         self.user_info['player_info'].player_color[2],
-         self.user_info['player_info'].team_color[0],
-         self.user_info['player_info'].team_color[1],
-         self.user_info['player_info'].team_color[2],
-         self.user_info['player_info'].build_date + " " + self.user_info['player_info'].build_time,
-         self.user_info['player_info'].platform_type))
+        (self.user_info.username, self.user_id, self.user_info.chatname,
+         self.user_info.player_info.player_color[0],
+         self.user_info.player_info.player_color[1],
+         self.user_info.player_info.player_color[2],
+         self.user_info.player_info.team_color[0],
+         self.user_info.player_info.team_color[1],
+         self.user_info.player_info.team_color[2],
+         self.user_info.player_info.build_date + " " + self.user_info.player_info.build_time,
+         self.user_info.player_info.platform_type))
       deferred.addErrback(self.reportDbError)
   
   def reportDbError(self, failure):
     log.msg("Database failure: %s" % str(failure))
   
   def userActive(self):
-    if self.user_info['afk'] is not None:
-      self.user_info['afk'] = None
+    if self.user_info.afk is not None:
+      self.user_info.afk = None
       self.sendPlayerList(self.user_id, 0, self.VERB_CHANGE)
       
   def handleChatCommand(self, message, target=None):
@@ -397,7 +397,7 @@ class Roomd(MetaProtocol):
       away_msg = "afk"
       if len(words) > 1:
         away_msg = ' '.join(words[1:])
-      self.user_info['afk'] = away_msg
+      self.user_info.afk = away_msg
       self.sendPlayerList(self.user_id, 0, self.VERB_CHANGE)
     elif words[0] == ".back":
       pass # userActive() already called when message came in
@@ -405,12 +405,12 @@ class Roomd(MetaProtocol):
       if target is None:
         self.sendRoomMessage("No user selected")
       else:
-        if target['username'] is None:
-          self.sendRoomMessage(target['chatname'] + " is a guest")
-        elif target['moderator']:
-          self.sendRoomMessage(target['chatname'] + " is the moderator \"" + target['username'] + "\"")
+        if target.username is None:
+          self.sendRoomMessage(target.chatname + " is a guest")
+        elif target.moderator:
+          self.sendRoomMessage(target.chatname + " is the moderator \"" + target.username + "\"")
         else:
-          self.sendRoomMessage(target['chatname'] + " is registered as \"" + target['username'] + "\"")
+          self.sendRoomMessage(target.chatname + " is registered as \"" + target.username + "\"")
     elif words[0] == ".help":
       self.sendCommandHelp()
     elif words[0] == ".action" or words[0] == ".me":
@@ -418,23 +418,23 @@ class Roomd(MetaProtocol):
         self.sendRoomMessage("A message is required for " + words[0])
       else:
         cur_time = time.time()
-        if cur_time < self.user_info['action_timer']:
+        if cur_time < self.user_info.action_timer:
           self.sendRoomMessage("Please wait 15 seconds between " + words[0] + " commands")
         else:
-          self.user_info['action_timer'] = cur_time + 15
-          self.broadcastRoomMessage(self.user_info['chatname'] + ' ' + ' '.join(words[1:]))
+          self.user_info.action_timer = cur_time + 15
+          self.broadcastRoomMessage(self.user_info.chatname + ' ' + ' '.join(words[1:]))
     elif words[0] == ".credits" or words[0] == ".about":
       self.sendRoomMessage("Aleph One Metaserver - http://metaserver.lhowon.org/")
-    elif words[0] == ".kick" and self.user_info['moderator']:
+    elif words[0] == ".kick" and self.user_info.moderator:
       if target is None:
         self.sendRoomMessage("No user selected")
-      elif target['roomd_connection']:
+      elif target.roomd_connection:
         extra = ''
-        if target['username']:
-          extra = ' [' + target['username'] + ']'
-        self.logEvent('kick', target['chatname'] + extra)
-        target['roomd_connection'].transport.loseConnection()
-        self.broadcastRoomMessage('Moderator ' + self.user_info['chatname'] + ' kicked ' + target['chatname'])
+        if target.username:
+          extra = ' [' + target.username + ']'
+        self.logEvent('kick', target.chatname + extra)
+        target.roomd_connection.transport.loseConnection()
+        self.broadcastRoomMessage('Moderator ' + self.user_info.chatname + ' kicked ' + target.chatname)
     else:
       self.sendRoomMessage("Unknown command: " + words[0] + " - for command list, type: .help")
       # self.sendCommandHelp()
@@ -449,7 +449,7 @@ class Roomd(MetaProtocol):
     self.sendRoomMessage(".back - cancels .afk")
     self.sendRoomMessage(".caste/.info - info about selected user")
     self.sendRoomMessage(".help - this list of commands")
-    if self.user_info['moderator']:
+    if self.user_info.moderator:
       self.sendRoomMessage("Moderator-only commands:")
       self.sendRoomMessage(".kick - disconnect the selected user")
   
