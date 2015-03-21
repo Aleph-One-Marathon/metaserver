@@ -20,6 +20,7 @@ from twisted.internet.protocol import Factory
 from twisted.python import log
 from MetaProtocol import MetaProtocol
 from MetaPackets import *
+from GameTester import GameTester
 import pprint
 import time
 
@@ -42,6 +43,7 @@ class Roomd(MetaProtocol):
     self.user_id = None
     self.user_info = None
     self.game_info = None
+    self.tester = None
     self.dbpool = self.userd.dbpool
     self.log_events = True if self.factory.options['log_events'] > 0 else False
     self.log_logindetail = True if self.factory.options['log_logindetail'] > 0 else False
@@ -172,6 +174,9 @@ class Roomd(MetaProtocol):
       self.sendMessage(MessagePacket.SYNTAX_ERROR)
       return False
     
+    if self.tester is not None:
+      self.tester.cancel()
+      self.tester = None
     self.logEvent('start game', packet.game_time)
     self.game_info.start_time = time.time()
     if packet.game_time > 0 and packet.game_time < 7 * 24 * 3600 * 30:
@@ -188,6 +193,9 @@ class Roomd(MetaProtocol):
       self.sendGameList(self.game_info.game_id, 0, self.VERB_DELETE)
       self.userd.expireGame(self.game_info.game_id)
       self.game_info = None
+    if self.tester is not None:
+      self.tester.cancel()
+      self.tester = None
     return True
   
   def handleIncomingChatPacket(self, packet):
@@ -435,6 +443,17 @@ class Roomd(MetaProtocol):
         self.logEvent('kick', target.chatname + extra)
         target.roomd_connection.transport.loseConnection()
         self.broadcastRoomMessage('Moderator ' + self.user_info.chatname + ' kicked ' + target.chatname)
+    elif words[0] == ".test":
+      if self.game_info is None:
+        self.sendRoomMessage("You must be gathering a game to run this test.")
+      elif self.tester is not None:
+        self.sendRoomMessage("The test is still running, please be patient.")
+      else:
+        self.sendRoomMessage("Testing your network connection...")
+        self.tester = GameTester(self.game_info.host, self.game_info.port)
+        self.tester.setMessageCallback(self.gameTesterMessage)
+        self.tester.setFinishedCallback(self.gameTesterFinished)
+        self.tester.run()
     else:
       self.sendRoomMessage("Unknown command: " + words[0] + " - for command list, type: .help")
       # self.sendCommandHelp()
@@ -448,12 +467,28 @@ class Roomd(MetaProtocol):
     self.sendRoomMessage(".afk [away message] - set your away status")
     self.sendRoomMessage(".back - cancels .afk")
     self.sendRoomMessage(".caste/.info - info about selected user")
+    self.sendRoomMessage(".test - test your ability to gather games")
     self.sendRoomMessage(".help - this list of commands")
     if self.user_info.moderator:
       self.sendRoomMessage("Moderator-only commands:")
       self.sendRoomMessage(".kick - disconnect the selected user")
   
+  def gameTesterMessage(self, tester, message):
+    if tester == self.tester:
+      self.sendRoomMessage(message)
   
+  def gameTesterFinished(self, tester, success, warn):
+    if tester == self.tester:
+      self.tester = None
+      if success:
+        if warn:
+          self.sendRoomMessage("Test passed with warnings. Some players will be unable to join.")
+        else:
+          self.sendRoomMessage("Test passed. You can gather games.")
+      elif success is False:
+        self.sendRoomMessage("Test failed. You cannot gather games.")
+
+
 class RoomdFactory(Factory):
 
   def __init__(self, userd_factory, options=None):
