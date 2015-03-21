@@ -20,6 +20,7 @@ from twisted.internet.protocol import Factory
 from twisted.python import log
 from MetaProtocol import MetaProtocol
 from MetaPackets import *
+from UserInfo import UserInfo
 from GameTester import GameTester
 import pprint
 import time
@@ -127,6 +128,7 @@ class Roomd(MetaProtocol):
     # announce games to new player
     self.sendGameList(0, self.user_id, self.VERB_ADD)
     
+    self.checkRainbow()
     return True
   
   def handlePlayerModePacket(self, packet):
@@ -144,6 +146,7 @@ class Roomd(MetaProtocol):
       else:
         self.logEvent('leave game')
       self.sendPlayerList(self.user_id, 0, self.VERB_CHANGE)
+      self.checkRainbow()
     return True
   
   def handleCreateGamePacket(self, packet):
@@ -246,6 +249,7 @@ class Roomd(MetaProtocol):
     MetaProtocol.connectionLost(self, reason)
     if self.user_info is not None:
       self.user_info.roomd_connection = None
+    did_change = False
     if self.state == self.LOGGED_IN:
       if self.game_info is not None:
         self.logEvent('remove game')
@@ -253,8 +257,11 @@ class Roomd(MetaProtocol):
         self.userd.expireGame(self.game_info.game_id)
       self.logEvent('logout')
       self.sendPlayerList(self.user_id, 0, self.VERB_DELETE)
+      did_change = True
     self.userd.cleanUser(self.user_id)
     self.userd.debugGlobals()
+    if did_change:
+      self.checkRainbow()
 
   def sendRoomMessage(self, message):
     self.sendPacket(RoomMessagePacket(message))
@@ -396,6 +403,7 @@ class Roomd(MetaProtocol):
     if self.user_info.afk is not None:
       self.user_info.afk = None
       self.sendPlayerList(self.user_id, 0, self.VERB_CHANGE)
+      self.checkRainbow()
       
   def handleChatCommand(self, message, target=None):
     if not message.startswith("."):
@@ -407,6 +415,7 @@ class Roomd(MetaProtocol):
         away_msg = ' '.join(words[1:])
       self.user_info.afk = away_msg
       self.sendPlayerList(self.user_id, 0, self.VERB_CHANGE)
+      self.checkRainbow()
     elif words[0] == ".back":
       pass # userActive() already called when message came in
     elif words[0] == ".caste" or words[0] == ".info":
@@ -443,6 +452,13 @@ class Roomd(MetaProtocol):
         self.logEvent('kick', target.chatname + extra)
         target.roomd_connection.transport.loseConnection()
         self.broadcastRoomMessage('Moderator ' + self.user_info.chatname + ' kicked ' + target.chatname)
+    elif words[0] == ".rainbow" and self.user_info.moderator:
+      if self.globals['rainbow'] is None:
+        self.globals['rainbow'] = 'rainbow'
+        self.checkRainbow()
+      else:
+        self.globals['rainbow'] = None
+        self.resetColors()
     elif words[0] == ".test":
       if self.game_info is None:
         self.sendRoomMessage("You must be gathering a game to run this test.")
@@ -472,6 +488,7 @@ class Roomd(MetaProtocol):
     if self.user_info.moderator:
       self.sendRoomMessage("Moderator-only commands:")
       self.sendRoomMessage(".kick - disconnect the selected user")
+      self.sendRoomMessage(".rainbow - A FRIGGIN' RAINBOW")
   
   def gameTesterMessage(self, tester, message):
     if tester == self.tester:
@@ -488,6 +505,46 @@ class Roomd(MetaProtocol):
       elif success is False:
         self.sendRoomMessage("Test failed. You cannot gather games.")
 
+  def checkRainbow(self):
+    changed = False
+    if self.globals['rainbow'] == 'rainbow':
+      # check if any moderators are still in the room
+      cancel = True
+      for user_info in self.globals['users'].values():
+        if user_info.moderator:
+          cancel = False
+          break
+      if cancel:
+        self.globals['rainbow'] = None
+        self.resetColors()
+        return
+    
+      num_users = len(self.globals['users'])
+      for index, user_info in enumerate(sorted(self.globals['users'].values())):
+        color1 = UserInfo.rainbow_for_pos(index, num_users)
+        color2 = UserInfo.rainbow_for_pos(index + 1, num_users)
+        if user_info.player_info.player_color != color1:
+          user_info.player_info.player_color = color1
+          changed = True
+        if user_info.player_info.team_color != color2:
+          user_info.player_info.team_color = color2
+          changed = True
+      
+    if changed:
+      self.sendPlayerList(0, 0, self.VERB_CHANGE)
+      
+  def resetColors(self):
+    changed = False
+    for user_info in self.globals['users'].values():
+      if user_info.player_info.player_color != user_info.original_player_color:
+        user_info.player_info.player_color = user_info.original_player_color
+        changed = True
+      if user_info.player_info.team_color != user_info.original_team_color:
+        user_info.player_info.team_color = user_info.original_team_color
+        changed = True
+      
+    if changed:
+      self.sendPlayerList(0, 0, self.VERB_CHANGE)
 
 class RoomdFactory(Factory):
 

@@ -17,8 +17,28 @@
 # along with Metaserver. If not, see <http://www.gnu.org/licenses/>.
 
 import struct
+import colorsys
 
 class UserInfo:
+
+  rainbow = [
+    [192*257,       0,       0],
+    [248*257,       0,       0],
+    [248*257,  72*257,       0],
+    [248*257, 248*257,       0],
+    [ 88*257, 248*257,       0],
+    [      0, 208*257, 248*257],
+    [ 56*257,       0, 248*257],
+    [ 96*257,       0,  96*257],
+  ]
+  
+  @staticmethod
+  def rainbow_for_pos(pos, total):
+    total = max(total, 6)
+    wrappos = pos % total
+    frac = wrappos / float(total)
+    red, green, blue = colorsys.hls_to_rgb(frac, 0.5, 1.0)
+    return (int(red * 65535), int(green * 65535), int(blue * 65535))
 
   def __init__(self, uid, connection, token):
     self.user_id = uid
@@ -35,7 +55,14 @@ class UserInfo:
     self.moderator = False
     self.action_timer = -1
     self.token = token
-    
+    self.original_player_color = None
+    self.original_team_color = None
+  
+  def set_player_info(self, player_info):
+    self.player_info = player_info
+    self.original_player_color = player_info.player_color
+    self.original_team_color = player_info.team_color
+  
   def away_status(self):
     return 1 if (self.in_game or self.afk) else 0
   

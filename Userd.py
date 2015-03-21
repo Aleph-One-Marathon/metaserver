@@ -77,7 +77,7 @@ class Userd(MetaProtocol):
       self.sendMessage(MessagePacket.SYNTAX_ERROR)
       return False
     
-    self.user_info.player_info = packet
+    self.user_info.set_player_info(packet)
     if packet.username == 'guest' or packet.username == '':
       self.user_info.chatname = '|iGuest|p ' + packet.player_name
       self.state = self.NEED_VERSION
@@ -216,7 +216,8 @@ class UserdFactory(Factory):
       'users': {},
       'tokens' : {},
       'usernames' : {},
-      'games' : {} }
+      'games' : {},
+      'rainbow' : None }
     self.last_user_id = 10000
     self.last_game_id = 40000
     self.roomd_host = roomd_host
