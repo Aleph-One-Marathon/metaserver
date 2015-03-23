@@ -508,19 +508,23 @@ class Roomd(MetaProtocol):
   def checkRainbow(self):
     changed = False
     if self.globals['rainbow'] == 'rainbow':
-      # check if any moderators are still in the room
+      # check if any moderators are still in the room; count visible users
       cancel = True
+      num_users = 0
       for user_info in self.globals['users'].values():
         if user_info.moderator:
           cancel = False
-          break
+        if user_info.visible:
+          num_users += 1
       if cancel:
         self.globals['rainbow'] = None
         self.resetColors()
         return
     
-      num_users = len(self.globals['users'])
-      for index, user_info in enumerate(sorted(self.globals['users'].values())):
+      index = 0
+      for user_info in sorted(self.globals['users'].values()):
+        if not user_info.visible:
+          continue
         color1 = UserInfo.rainbow_for_pos(index, num_users)
         color2 = UserInfo.rainbow_for_pos(index + 1, num_users)
         if user_info.player_info.player_color != color1:
@@ -529,6 +533,7 @@ class Roomd(MetaProtocol):
         if user_info.player_info.team_color != color2:
           user_info.player_info.team_color = color2
           changed = True
+        index += 1
       
     if changed:
       self.sendPlayerList(0, 0, self.VERB_CHANGE)
