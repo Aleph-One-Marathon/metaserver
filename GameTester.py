@@ -18,10 +18,12 @@
 
 import struct
 
-from twisted.internet.protocol import ClientCreator, ClientFactory
-from twisted.internet import reactor
+from twisted.internet.protocol import ClientFactory, DatagramProtocol
+from twisted.internet import reactor, task
 from MetaProtocol import MetaProtocol
 from MetaPackets import unpack_strings
+import random
+import crcmod
 
 ### packets
 
@@ -269,6 +271,76 @@ class JoinerConnectorFactory(ClientFactory):
   def clientConnectionFailed(self, connector, reason):
     self.tester.joinConnectFailed(reason)
 
+## UDP connector
+class GameConnector(DatagramProtocol):
+
+  def __init__(self, tester, host, port):
+    self.tester = tester
+    self.gather_host = host
+    self.gather_port = port
+
+  def startProtocol(self):
+#     self.transport.connect(self.gather_host, self.gather_port)
+    self.ping_id = int(random.uniform(1, 65535))
+    self.ping_failed = 0
+    self.timeout = reactor.callLater(0.35, self.pingTimeout)
+    self.sendPing(self.ping_id)
+  
+  def pingTimeout(self):
+    if self.ping_failed < 2:
+      self.ping_failed += 1
+      self.sendPing(self.ping_id)
+      reactor.callLater(0.35, self.pingTimeout)
+    else:
+      self.tester.gameConnectFailed(self)
+      self.transport.stopListening()
+
+  def connectionRefused(self):
+    self.tester.gameConnectFailed(self)
+  
+  def datagramReceived(self, data, (host, port)):
+    _fmt = struct.Struct('>2sH')
+    _magic, _crc, = _fmt.unpack_from(data)
+    _dataOffset = _fmt.size
+    
+    crc16 = crcmod.predefined.Crc('crc-ccitt-false')
+    crc16.update(_magic)
+    crc16.update('\x00\x00')
+    crc16.update(data[_dataOffset:])
+    
+    if crc16.crcValue != _crc:
+      self.tester.gamePacketFailed(self, "CRC failed")
+      return
+    
+    if _magic != 'PR':
+      self.tester.gamePacketFailed(self, "bad packet type")
+      return
+    
+    _fmt2 = struct.Struct('>H')
+    _ping_id, = _fmt2.unpack_from(data, _dataOffset)
+    
+    if _ping_id != self.ping_id:
+      self.tester.gamePacketFailed(self, "wrong ping ID")
+      return
+    
+    self.tester.gamePingSucceeded(self)
+    if self.timeout:
+      self.timeout.cancel()
+      self.timeout = None
+    self.transport.stopListening()
+ 
+  def sendPing(self, ping_id):
+    _magic = 'PQ'
+    _payload = struct.Struct('>H').pack(ping_id)
+    
+    crc16 = crcmod.predefined.Crc('crc-ccitt-false')
+    crc16.update(_magic)
+    crc16.update('\x00\x00')
+    crc16.update(_payload)
+    _data = _magic + crc16.digest() + _payload
+    
+    self.transport.write(_data, (self.gather_host, self.gather_port))
+
 class GameTester:
 
   def __init__(self, host, port):
@@ -278,6 +350,8 @@ class GameTester:
     self.finished_callback = None
     self.cancelled = False
     self.warned = False
+    self.join_running = False
+    self.game_running = False
   
   def setMessageCallback(self, cb=None):
     self.message_callback = cb
@@ -286,6 +360,7 @@ class GameTester:
     self.finished_callback = cb
   
   def run(self):
+    self.join_running = True
     reactor.connectTCP(self.test_host, self.test_port, JoinerConnectorFactory(self), 3)
 
   def cancel(self):
@@ -305,25 +380,36 @@ class GameTester:
       self.message_callback(self, msg)
   
   def joinConnectFailed(self, reason):
-    self._sendMessage("TCP connection to port %d failed." % (self.test_port))
-    self._finished(False)
+    if self.join_running:
+      self._sendMessage("TCP connection to port %d failed." % (self.test_port))
+      self._finished(False)
   
   def joinDisconnected(self, connector, reason):
-    self._sendMessage("Bad response on TCP port %d." % (self.test_port))
-    self._finished(False)
+    if self.join_running:
+      self._sendMessage("Bad response on TCP port %d." % (self.test_port))
+      self._sendMessage(reason)
+      self._finished(False)
   
   def joinConnectSucceeded(self, connector):
-    # self._sendMessage("TCP connection to port %d succeeded." % (self.test_port))
+#     if self.join_running:
+#       self._sendMessage("TCP connection to port %d succeeded." % (self.test_port))
     pass
   
   def joinGotHello(self, connector):
-    # self._sendMessage("Hello packet received.")
+#     if self.join_running:
+#       self._sendMessage("Hello packet received.")
     pass
   
   def joinGotCapabilities(self, connector, packet):
-    # self._sendMessage("Capabilities packet received.")
-    self.testCapabilities(packet.capabilities)
-    self._finished(True)
+    if self.join_running:
+#       self._sendMessage("Capabilities packet received.")
+      self.join_running = False
+      caps = packet.capabilities
+      self.testCapabilities(caps)
+      if "Gameworld" in caps and caps["Gameworld"] >= 3 and "Star" in caps:
+        self.testUDP()
+      else:
+        self._finished(True)
     
   def testCapabilities(self, caps):
     if "Ring" in caps and "Star" not in caps:
@@ -336,3 +422,31 @@ class GameTester:
       self._sendMessage("You are not network compatible with the latest version.")
       self.warned = True
   
+  def testUDP(self):
+    self.game_running = True
+    gc = GameConnector(self, self.test_host, self.test_port)
+    reactor.listenUDP(0, gc)
+    
+  def gameConnectSucceeded(self, connector):
+#     if self.game_running:
+#       self._sendMessage("UDP connection to port %d succeeded." % (self.test_port))
+    pass
+  
+  def gameConnectFailed(self, connector):
+    if self.game_running:
+      self._sendMessage("UDP connection to port %d failed." % (self.test_port))
+      self.game_running = False
+      self._finished(False)
+    
+  def gamePacketFailed(self, connector, reason):
+    if self.game_running:
+      self._sendMessage("Bad response on UDP port %d." % (self.test_port))
+      self.game_running = False
+      connector.transport.stopListening()
+      self._finished(False)
+  
+  def gamePingSucceeded(self, connector):
+    if self.game_running:
+#       self._sendMessage("UDP ping to port %d succeeded." % (self.test_port))
+      self.game_running = False
+      self._finished(True)
