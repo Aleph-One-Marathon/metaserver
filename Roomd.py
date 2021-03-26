@@ -117,7 +117,7 @@ class Roomd(MetaProtocol):
     # MOTD
     uname = self.user_info.username
     if uname is None:
-      self.sendRoomMessage("Tired of being a guest? Sign up at: http://metaserver.lhowon.org")
+      self.sendRoomMessage("Tired of being a guest? Sign up at: https://metaserver.lhowon.org")
     self.sendRoomMessage("Find players on the Discord: https://discord.gg/c7rEVgY")
     
     # announce new player to everyone else
