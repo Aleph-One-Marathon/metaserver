@@ -2,7 +2,7 @@ Non-guest users are looked up by username in the `user` table. Only SELECT queri
 
 * The `sort_order` field must be unique. An auto-incremented number is fine.
 * The `username` field must be unique. The username entered in Aleph One will be checked against this field. Usernames should be ASCII, and Aleph One currently has a limit of 15 characters.
-* The `password` field contains a hash created by the [phpass](http://www.openwall.com/phpass/) framework.
+* The `password` field contains a bcrypt hash.
 * The `moderator` field grants access to moderator-only commands, like `.gag` or `.kick`.
 * The `hide_in_room` field, when set, prevents the user from being announced in player lists. This can be used to suppress join and leave messages from bots or system-monitoring tools.
 * The `meta_login_token` field is used instead of `password` during HTTPS login authentication. The code that accepts an HTTPS request and populates this field is not provided here; see the Aleph One source code for the client-side API. 

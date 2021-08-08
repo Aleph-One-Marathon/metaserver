@@ -22,7 +22,7 @@ The implementation is designed for use with [Aleph One](http://source.bungie.org
 * [Twisted](http://www.twistedmatrix.com/) (tested with 8.2.0)
 * [MySQL](http://www.mysql.com/) (tested with 5.5.34)
 * [MySQL-Python](http://mysql-python.sourceforge.net) (tested with 1.2.3)
-* [python-phpass](https://github.com/exavolt/python-phpass) (tested with 0.3 / commit 3d1c6fc)
+* [bcrypt](https://github.com/pyca/bcrypt/) (tested with 3.1.7)
 
 ### Acknowledgements
 

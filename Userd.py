@@ -25,7 +25,7 @@ from GameInfo import GameInfo
 from UserInfo import UserInfo
 import uuid
 import os
-import phpass
+import bcrypt
 
 def inc_wrap(num, min, max):
   if num >= max:
@@ -40,8 +40,6 @@ class Userd(MetaProtocol):
   NEED_PWHASH = 2
   NEED_VERSION = 3
   LOGGED_IN = 4
-  
-  _hasher = phpass.PasswordHash(8, False)
   
   def __init__(self, factory, roomd_host=None, roomd_port=6335, dbpool=None):
     MetaProtocol.__init__(self)
@@ -157,7 +155,7 @@ class Userd(MetaProtocol):
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
-    if not self._hasher.check_password(saved_pw, rs[0][0]):
+    if not bcrypt.checkpw(saved_pw, rs[0][0]):
       print "Password check failed for %s" % self.user_info.username
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
