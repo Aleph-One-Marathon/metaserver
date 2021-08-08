@@ -104,11 +104,11 @@ class Userd(MetaProtocol):
     packet.decode_password(self.seed_auth, self.seed)
     self.state = self.NEED_PWHASH
     if self.seed_auth == 0:
-      deferred = self.dbpool.runQuery("SELECT password, hide_in_room, moderator, sort_order FROM user WHERE BINARY username = %s", self.user_info.username)
+      deferred = self.dbpool.runQuery("SELECT password, hide_in_room, moderator, sort_order FROM user WHERE BINARY username = %s", (self.user_info.username,))
       deferred.addCallback(self.passwordLookupResult, packet.password)
       deferred.addErrback(self.passwordLookupFailure)
     elif self.seed_auth == 4:
-      deferred = self.dbpool.runQuery("SELECT meta_login_token, meta_login_token_date + INTERVAL 60 SECOND > NOW(), hide_in_room, moderator, sort_order FROM user WHERE BINARY username = %s", self.user_info.username)
+      deferred = self.dbpool.runQuery("SELECT meta_login_token, meta_login_token_date + INTERVAL 60 SECOND > NOW(), hide_in_room, moderator, sort_order FROM user WHERE BINARY username = %s", (self.user_info.username,))
       deferred.addCallback(self.passwordTokenResult, packet.password)
       deferred.addErrback(self.passwordLookupFailure)
     else:
@@ -137,7 +137,7 @@ class Userd(MetaProtocol):
       self.transport.loseConnection()
       return
     print "Password accepted for %s" % self.user_info.username
-    self.dbpool.runOperation("UPDATE user SET meta_login_token = NULL, meta_login_token_date = NULL WHERE BINARY username = %s", self.user_info.username)
+    self.dbpool.runOperation("UPDATE user SET meta_login_token = NULL, meta_login_token_date = NULL WHERE BINARY username = %s", (self.user_info.username,))
     self.state = self.NEED_VERSION
     if rs[0][2]:
       self.user_info.visible = False
