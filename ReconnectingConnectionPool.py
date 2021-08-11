@@ -5,7 +5,7 @@
 
 from twisted.enterprise import adbapi
 from twisted.python import log
-import MySQLdb
+import pymysql
 
 class ReconnectingConnectionPool(adbapi.ConnectionPool):
     """Reconnecting adbapi connection pool for MySQL.
@@ -22,7 +22,7 @@ class ReconnectingConnectionPool(adbapi.ConnectionPool):
     def _runInteraction(self, interaction, *args, **kw):
         try:
             return adbapi.ConnectionPool._runInteraction(self, interaction, *args, **kw)
-        except MySQLdb.OperationalError, e:
+        except pymysql.OperationalError as e:
             if e[0] not in (2006, 2013):
                 raise
             log.msg("RCP: got error %s, retrying operation" %(e))

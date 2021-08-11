@@ -7,21 +7,24 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # Metaserver is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with Metaserver. If not, see <http://www.gnu.org/licenses/>.
 
 from twisted.application import internet, service
+from configparser import ConfigParser
+
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from Userd import UserdFactory
 from Roomd import RoomdFactory
 from ReconnectingConnectionPool import ReconnectingConnectionPool
-from ConfigParser import SafeConfigParser
-import os
 
 def get_strings(config, section, dict, optlist):
   for opt in optlist:
@@ -40,7 +43,7 @@ def getMetaService():
 
   ## Extra configuration
   
-  config = SafeConfigParser()
+  config = ConfigParser()
   config.read(getConfigPath())
 
   ## Database setup
@@ -48,7 +51,7 @@ def getMetaService():
   dbopts = { 'cp_reconnect' : True }
   get_strings(config, 'mysql', dbopts, ['host', 'db', 'user', 'passwd'])
   get_ints(config, 'mysql', dbopts, ['port'])
-  dbpool = ReconnectingConnectionPool("MySQLdb", **dbopts)
+  dbpool = ReconnectingConnectionPool("pymysql", **dbopts)
   
   ## Server setup
   

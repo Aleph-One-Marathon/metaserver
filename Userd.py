@@ -7,12 +7,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # Metaserver is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with Metaserver. If not, see <http://www.gnu.org/licenses/>.
 
@@ -110,31 +110,31 @@ class Userd(MetaProtocol):
       deferred.addCallback(self.passwordTokenResult, packet.password)
       deferred.addErrback(self.passwordLookupFailure)
     else:
-      print "Authentication type not handled: %s" % self.seed_auth
+      print("Authentication type not handled: %s" % self.seed_auth)
       return False
     return True
   
   def passwordTokenResult(self, rs, saved_pw):
     if self.state != self.NEED_PWHASH:
-      print "Password lookup called in wrong context"
+      print("Password lookup called in wrong context")
       self.transport.loseConnection()
       return
     if len(rs) < 1:
-      print "Username not found in database: %s" % self.user_info.username
+      print("Username not found in database: %s" % self.user_info.username)
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
     if rs[0][0] != saved_pw:
-      print "Password check failed for %s" % self.user_info.username
+      print("Password check failed for %s" % self.user_info.username)
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
     if not rs[0][1]:
-      print "Token out of date for %s" % self.user_info.username
+      print("Token out of date for %s" % self.user_info.username)
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
-    print "Password accepted for %s" % self.user_info.username
+    print("Password accepted for %s" % self.user_info.username)
     self.dbpool.runOperation("UPDATE user SET meta_login_token = NULL, meta_login_token_date = NULL WHERE BINARY username = %s", (self.user_info.username,))
     self.state = self.NEED_VERSION
     if rs[0][2]:
@@ -147,20 +147,20 @@ class Userd(MetaProtocol):
   
   def passwordLookupResult(self, rs, saved_pw):
     if self.state != self.NEED_PWHASH:
-      print "Password lookup called in wrong context"
+      print("Password lookup called in wrong context")
       self.transport.loseConnection()
       return
     if len(rs) < 1:
-      print "Username not found in database: %s" % self.user_info.username
+      print("Username not found in database: %s" % self.user_info.username)
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
-    if not bcrypt.checkpw(saved_pw, rs[0][0]):
-      print "Password check failed for %s" % self.user_info.username
+    if not bcrypt.checkpw(saved_pw.decode('mac_roman').encode('utf8'), rs[0][0].encode('utf8')):
+      print("Password check failed for %s" % self.user_info.username)
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
-    print "Password accepted for %s" % self.user_info.username
+    print("Password accepted for %s" % self.user_info.username)
     self.state = self.NEED_VERSION
     if rs[0][1]:
       self.user_info.visible = False
@@ -171,7 +171,7 @@ class Userd(MetaProtocol):
     self.sendPacket(AcceptPacket())
   
   def passwordLookupFailure(self, failure):
-    print "Password lookup failure:\n%s" % str(failure)
+    print("Password lookup failure:\n%s" % str(failure))
     self.transport.loseConnection()
   
   def handleLocalizationPacket(self, packet):
@@ -265,7 +265,7 @@ class UserdFactory(Factory):
     uid = inc_wrap(self.last_user_id, self.MIN_USER_ID, self.MAX_USER_ID)
     while uid in self.globals['users']:
       uid = inc_wrap(uid, self.MIN_USER_ID, self.MAX_USER_ID)
-    self.last_user_id = uid    
+    self.last_user_id = uid
 
     token = self.buildToken(uid)
     self.globals['users'][uid] = UserInfo(uid, connection, token)
@@ -283,9 +283,9 @@ class UserdFactory(Factory):
   
   def buildToken(self, user_id):
     # TODO: convince GvR to give us do-while
-    token = uuid.uuid4().hex
+    token = uuid.uuid4().hex.encode('ascii')
     while token in self.globals['tokens']:
-      token = uuid.uuid4().hex
+      token = uuid.uuid4().hex.encode('ascii')
     self.globals['tokens'][token] = {
       'active' : False,
       'user_id' : user_id }
@@ -295,7 +295,7 @@ class UserdFactory(Factory):
     
     numTokens = 0
     numActiveTokens = 0
-    for k, v in self.globals['tokens'].iteritems():
+    for k, v in self.globals['tokens'].items():
       numTokens += 1
       if v['active']:
         numActiveTokens += 1
@@ -304,7 +304,7 @@ class UserdFactory(Factory):
     log.msg("%d tokens (%d active)" % (numTokens, numActiveTokens))
     
     numUsernames = 0
-    for k, v in self.globals['usernames'].iteritems():
+    for k, v in self.globals['usernames'].items():
       numUsernames += 1
       if not v in self.globals['users']:
         log.msg("Bad user id %d for username %s" % (v, k))
@@ -312,7 +312,7 @@ class UserdFactory(Factory):
     
     numGames = 0
     numActiveGames = 0
-    for k, ginfo in self.globals['games'].iteritems():
+    for k, ginfo in self.globals['games'].items():
       numGames += 1
       if ginfo.start_time:
         numActiveGames += 1
@@ -325,7 +325,7 @@ class UserdFactory(Factory):
     numInRoomd = 0
     numRegistered = 0
     seen_usernames = {}
-    for k, uinfo in self.globals['users'].iteritems():
+    for k, uinfo in self.globals['users'].items():
       numUsers += 1
       if uinfo.userd_connection:
         numInUserd += 1

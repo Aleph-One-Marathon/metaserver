@@ -298,7 +298,8 @@ class GameConnector(DatagramProtocol):
   def connectionRefused(self):
     self.tester.gameConnectFailed(self)
   
-  def datagramReceived(self, data, (host, port)):
+  def datagramReceived(self, data, addr_tuple):
+    (host, port) = addr_tuple
     _fmt = struct.Struct('>2sH')
     _magic, _crc, = _fmt.unpack_from(data)
     _dataOffset = _fmt.size

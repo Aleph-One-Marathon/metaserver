@@ -7,12 +7,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # Metaserver is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with Metaserver. If not, see <http://www.gnu.org/licenses/>.
 
@@ -32,7 +32,7 @@ class MetaProtocol(Protocol, TimeoutMixin):
   
   def __init__(self):
 #     Protocol.__init__(self)
-    self._unprocessed = ''
+    self._unprocessed = b''
     self._awaitingPing = False
       
   def connectionMade(self):
@@ -75,7 +75,7 @@ class MetaProtocol(Protocol, TimeoutMixin):
   def sendPacket(self, packet):
     extradata = packet.data
     if extradata == None:
-      extradata = ''
+      extradata = b''
     if not isinstance(packet, OutgoingKeepAlivePacket):
       log.msg("sending %s (%d bytes)" % (packet.__class__.__name__.rsplit('.', 1).pop(), len(extradata)))
     data = self._fmt.pack(self.SIGNATURE, packet.code, self._fmt.size + len(extradata)) + extradata
@@ -117,4 +117,3 @@ class MetaProtocol(Protocol, TimeoutMixin):
       currentOffset = bodyEnd
     
     self._unprocessed = alldata[currentOffset:]
-

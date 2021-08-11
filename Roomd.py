@@ -85,9 +85,9 @@ class Roomd(MetaProtocol):
     self.user_info = self.globals['users'][self.user_id]
     uname = self.user_info.username
     if uname is None:
-      uname = 'guest'
-    if packet.username == '':
-      packet.username = 'guest'
+      uname = b'guest'
+    if packet.username == b'':
+      packet.username = b'guest'
     if uname != packet.username:
       self.sendMessage(MessagePacket.BAD_USER)
       return False
@@ -153,7 +153,7 @@ class Roomd(MetaProtocol):
       self.sendMessage(MessagePacket.NOT_LOGGED_IN)
       return False
       
-    self.logEvent('create game', packet.game_data.encode('hex'))
+    self.logEvent('create game', packet.game_data.hex())
     verb = self.VERB_CHANGE
     if self.game_info is None:
       gid = self.userd.buildGameID(self.user_id)
@@ -263,11 +263,11 @@ class Roomd(MetaProtocol):
       self.checkRainbow()
 
   def sendRoomMessage(self, message):
-    self.sendPacket(RoomMessagePacket(message))
+    self.sendPacket(RoomMessagePacket(message.encode('mac_roman')))
   
   def broadcastRoomMessage(self, message):
     self.logBroadcast(message)
-    self.sendPacketToRoom(RoomMessagePacket(message))
+    self.sendPacketToRoom(RoomMessagePacket(message.encode('mac_roman')))
 
   def sendPlayerList(self, send, recip, verb):
     send_list = self.buildSendList('users', send)
@@ -285,7 +285,7 @@ class Roomd(MetaProtocol):
       if send in self.globals[which] and self.globals[which][send].visible:
         send_list.append(self.globals[which][send])
     else:
-      for id, info in self.globals[which].iteritems():
+      for id, info in self.globals[which].items():
         if info.visible and not id == (0 - send):
           send_list.append(info)
     return send_list
@@ -299,7 +299,7 @@ class Roomd(MetaProtocol):
         if conn is not None and not conn.deaf:
           conn.sendPacket(packet)
     else:
-      for user_id, info in self.globals['users'].iteritems():
+      for user_id, info in self.globals['users'].items():
         if not user_id == (0 - recip):
           conn = info.roomd_connection
           if conn is not None and not conn.deaf:
@@ -391,7 +391,7 @@ class Roomd(MetaProtocol):
          self.user_info.player_info.team_color[0],
          self.user_info.player_info.team_color[1],
          self.user_info.player_info.team_color[2],
-         self.user_info.player_info.build_date + " " + self.user_info.player_info.build_time,
+         self.user_info.player_info.build_date + b' ' + self.user_info.player_info.build_time,
          self.user_info.player_info.platform_type))
       deferred.addErrback(self.reportDbError)
   
@@ -404,15 +404,16 @@ class Roomd(MetaProtocol):
       self.sendPlayerList(self.user_id, 0, self.VERB_CHANGE)
       self.checkRainbow()
       
-  def handleChatCommand(self, message, target=None):
-    if not message.startswith("."):
+  def handleChatCommand(self, messagebytes, target=None):
+    if not messagebytes.startswith('.'.encode('mac_roman')):
       return False
+    message = messagebytes.decode('mac_roman')
     words = message.split()
     if words[0] == ".afk":
       away_msg = "afk"
       if len(words) > 1:
         away_msg = ' '.join(words[1:])
-      self.user_info.afk = away_msg
+      self.user_info.afk = away_msg.encode('mac_roman')
       self.sendPlayerList(self.user_id, 0, self.VERB_CHANGE)
       self.checkRainbow()
     elif words[0] == ".back":
@@ -422,11 +423,11 @@ class Roomd(MetaProtocol):
         self.sendRoomMessage("No user selected")
       else:
         if target.username is None:
-          self.sendRoomMessage(target.chatname + " is a guest")
+          self.sendRoomMessage(target.chatname.decode('mac_roman') + " is a guest")
         elif target.moderator:
-          self.sendRoomMessage(target.chatname + " is the moderator \"" + target.username + "\"")
+          self.sendRoomMessage(target.chatname.decode('mac_roman') + " is the moderator \"" + target.username.decode('mac_roman') + "\"")
         else:
-          self.sendRoomMessage(target.chatname + " is registered as \"" + target.username + "\"")
+          self.sendRoomMessage(target.chatname.decode('mac_roman') + " is registered as \"" + target.username.decode('mac_roman') + "\"")
     elif words[0] == ".help":
       self.sendCommandHelp()
     elif words[0] == ".action" or words[0] == ".me":
@@ -438,7 +439,7 @@ class Roomd(MetaProtocol):
           self.sendRoomMessage("Please wait 15 seconds between " + words[0] + " commands")
         else:
           self.user_info.action_timer = cur_time + 15
-          self.broadcastRoomMessage(self.user_info.chatname + ' ' + ' '.join(words[1:]))
+          self.broadcastRoomMessage(self.user_info.chatname.decode('mac_roman') + ' ' + ' '.join(words[1:]))
     elif words[0] == ".credits" or words[0] == ".about":
       self.sendRoomMessage("Aleph One Metaserver - http://metaserver.lhowon.org/")
     elif words[0] == ".kick" and self.user_info.moderator:
@@ -447,10 +448,10 @@ class Roomd(MetaProtocol):
       elif target.roomd_connection:
         extra = ''
         if target.username:
-          extra = ' [' + target.username + ']'
-        self.logEvent('kick', target.chatname + extra)
+          extra = ' [' + target.username.decode('mac_roman') + ']'
+        self.logEvent('kick', target.chatname.decode('mac_roman') + extra)
         target.roomd_connection.transport.loseConnection()
-        self.broadcastRoomMessage('Moderator ' + self.user_info.chatname + ' kicked ' + target.chatname)
+        self.broadcastRoomMessage('Moderator ' + self.user_info.chatname.decode('mac_roman') + ' kicked ' + target.chatname.decode('mac_roman'))
     elif words[0] == ".rainbow" and self.user_info.moderator:
       if self.globals['rainbow'] is None:
         self.globals['rainbow'] = 'rainbow'
@@ -510,7 +511,7 @@ class Roomd(MetaProtocol):
       # check if any moderators are still in the room; count visible users
       cancel = True
       num_users = 0
-      for user_info in self.globals['users'].values():
+      for user_info in list(self.globals['users'].values()):
         if user_info.moderator:
           cancel = False
         if user_info.visible:
@@ -539,7 +540,7 @@ class Roomd(MetaProtocol):
       
   def resetColors(self):
     changed = False
-    for user_info in self.globals['users'].values():
+    for user_info in list(self.globals['users'].values()):
       if user_info.player_info.player_color != user_info.original_player_color:
         user_info.player_info.player_color = user_info.original_player_color
         changed = True

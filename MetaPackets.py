@@ -7,12 +7,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # Metaserver is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with Metaserver. If not, see <http://www.gnu.org/licenses/>.
 
@@ -23,13 +23,13 @@ import time
 def unpack_strings(data, num_strings=1, offset=0):
   maxp = len(data)
   p = offset
-  cur_string = ''
+  cur_string = b''
   all_strings = []
   
   for i in range(num_strings):
-    foundstring = ''
+    foundstring = b''
     if p < maxp:
-      nextnull = data.find('\x00', p)
+      nextnull = data.find(b'\x00', p)
       if nextnull < 0:
         p = maxp
       else:
@@ -75,25 +75,25 @@ class MessagePacket:
   NOT_SUPPORTED = 15
   
   _messages = [
-    "Syntax error (unrecognized command).",
-    "Login failed (Games not allowed at this time)." ,
-    "Login failed (Invalid Game Version number)." ,
-    "Login failed (Bad user or Password)." ,
-    "User not logged in." ,
-    "Bad metaserver version." ,
-    "User already logged in!",
-    "Unknown game type!",
-    "User logged in.",
-    "User logged out.",
-    "Player not in a room!",
-    "You already created a game!",
-    "This account is already logged in!",
-    "The desired room is full!",
-    "Your account has been locked",
-    "The game server for your product has been shutdown" ]
+    "Syntax error (unrecognized command).".encode('mac_roman'),
+    "Login failed (Games not allowed at this time).".encode('mac_roman'),
+    "Login failed (Invalid Game Version number).".encode('mac_roman'),
+    "Login failed (Bad user or Password).".encode('mac_roman'),
+    "User not logged in.".encode('mac_roman'),
+    "Bad metaserver version.".encode('mac_roman'),
+    "User already logged in!".encode('mac_roman'),
+    "Unknown game type!".encode('mac_roman'),
+    "User logged in.".encode('mac_roman'),
+    "User logged out.".encode('mac_roman'),
+    "Player not in a room!".encode('mac_roman'),
+    "You already created a game!".encode('mac_roman'),
+    "This account is already logged in!".encode('mac_roman'),
+    "The desired room is full!".encode('mac_roman'),
+    "Your account has been locked".encode('mac_roman'),
+    "The game server for your product has been shutdown".encode('mac_roman') ]
   
   def __init__(self, which):
-    self.data = self._fmt.pack(which) + self._messages[which] + '\x00'
+    self.data = self._fmt.pack(which) + self._messages[which] + b'\x00'
 
 
 class LoginPacket:
@@ -103,10 +103,10 @@ class LoginPacket:
   def __init__(self, data):
     self.platform_type, self.metaserver_version, self.flags, self.user_id, self.max_authentication, player_data_size, self.service_name, self.build_date, self.build_time, self.username = self._fmt.unpack_from(data)
     
-    self.service_name = self.service_name.rstrip('\x00')
-    self.build_date   = self.build_date.rstrip('\x00')
-    self.build_time   = self.build_time.rstrip('\x00')
-    self.username     = self.username.rstrip('\x00')
+    self.service_name = self.service_name.rstrip(b'\x00')
+    self.build_date   = self.build_date.rstrip(b'\x00')
+    self.build_time   = self.build_time.rstrip(b'\x00')
+    self.username     = self.username.rstrip(b'\x00')
     
     PlayerDataChunk.unpack_into(self, data, self._fmt.size)
 
@@ -118,9 +118,9 @@ class PasswordResponsePacket:
   def __init__(self, data):
     self.password_data, = self._fmt.unpack_from(data)
       
-  def decode_password(self, auth_type=0, salt=''):
+  def decode_password(self, auth_type=0, salt=b''):
     if auth_type == 0:  # plaintext
-      self.password = self.password_data.rstrip('\x00')
+      self.password = self.password_data.rstrip(b'\x00')
     elif auth_type == 4:  # HTTPS
       self.password = self.password_data
     else:  # unrecognized
@@ -144,7 +144,7 @@ class RoomLoginPacket:
   
   def __init__(self, data):
     self.token, = self._fmt.unpack_from(data)
-    self.token = self.token.rstrip('\x00')
+    self.token = self.token.rstrip(b'\x00')
     self.username, stringlen = unpack_strings(data, 1, self._fmt.size)
 
 class PlayerDataPacket:
@@ -246,13 +246,13 @@ class RoomMessagePacket:
   code = 10
   
   def __init__(self, message):
-    self.data = message + '\x00'
+    self.data = message + b'\x00'
 
 class PlayerListPacket:
   code = 1
   
   def __init__(self, player_list, verb):
-    self.data = ''
+    self.data = b''
     for user_info in player_list:
       self.data += user_info.roomPlayerDataChunk(verb)
 
@@ -260,7 +260,7 @@ class GameListPacket:
   code = 2
   
   def __init__(self, game_list, verb):
-    self.data = ''
+    self.data = b''
     for game_info in game_list:
       self.data += game_info.dataChunk(verb)
 
@@ -271,7 +271,7 @@ class OutgoingChatPacket:
   def __init__(self, user_info, message):
     chatname = user_info.chatname
     color = user_info.player_info.player_color
-    self.data = self._fmt.pack(0, 26 + len(chatname) + len(message), color[0], color[1], color[2], 0, user_info.user_id, 0) + chatname + '\x00' + message + '\x00'
+    self.data = self._fmt.pack(0, 26 + len(chatname) + len(message), color[0], color[1], color[2], 0, user_info.user_id, 0) + chatname + b'\x00' + message + b'\x00'
 
 class OutgoingPrivateMessagePacket:
   code = 201
@@ -280,5 +280,4 @@ class OutgoingPrivateMessagePacket:
   def __init__(self, user_info, target_id, message):
     chatname = user_info.chatname
     color = user_info.player_info.player_color
-    self.data = self._fmt.pack(target_id, 1, 0, 26 + len(chatname) + len(message), color[0], color[1], color[2], 1, user_info.user_id, target_id) + chatname + '\x00' + message + '\x00'
-
+    self.data = self._fmt.pack(target_id, 1, 0, 26 + len(chatname) + len(message), color[0], color[1], color[2], 1, user_info.user_id, target_id) + chatname + b'\x00' + message + b'\x00'

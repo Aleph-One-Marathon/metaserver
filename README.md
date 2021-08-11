@@ -14,15 +14,17 @@ This is a partial implementation of [Bungie](http://www.bungie.net/)'s Myth meta
 
 ### Limitations
 
-The implementation is designed for use with [Aleph One](http://source.bungie.org/), and only supports the subset of features actually used by Aleph One. It also trades scalability for simplicity: only one room is available, handled by the same server process as the initial user connections.
+The implementation is designed for use with [Aleph One](http://alephone.lhowon.org/), and only supports the subset of features actually used by Aleph One. It also trades scalability for simplicity: only one room is available, handled by the same server process as the initial user connections.
 
 ### Requirements
 
-* [Python](http://www.python.org/) 2.x (tested with 2.6.9)
-* [Twisted](http://www.twistedmatrix.com/) (tested with 8.2.0)
-* [MySQL](http://www.mysql.com/) (tested with 5.5.34)
-* [MySQL-Python](http://mysql-python.sourceforge.net) (tested with 1.2.3)
-* [bcrypt](https://github.com/pyca/bcrypt/) (tested with 3.1.7)
+* Python 3 (tested with 3.7.10)
+* MySQL or compatible database (tested with MariaDB 10.5.10)
+* Python modules:
+    * Twisted (tested with 21.7.0)
+    * PyMySQL (tested with 1.0.2)
+    * bcrypt (tested with 3.2.0)
+    * crcmod (tested with 1.7)
 
 ### Acknowledgements
 

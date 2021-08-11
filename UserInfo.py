@@ -7,12 +7,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # Metaserver is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with Metaserver. If not, see <http://www.gnu.org/licenses/>.
 
@@ -79,7 +79,7 @@ class UserInfo:
   def teamname(self):
     teamname = self.username
     if teamname is None:
-      teamname = ''
+      teamname = b''
     return teamname
   
   def roomPlayerDataChunk(self, verb):
@@ -92,9 +92,9 @@ class UserInfo:
     team = self.player_info.team_color
     
     if not self.in_game and self.afk is not None:
-      chatname = '|i' + self.afk + '|p-' + chatname
+      chatname = b'|i' + self.afk + b'|p-' + chatname
     
-    return _fmt.pack(verb, self.flags(), self.user_id, 40 + len(chatname) + len(teamname), self.away_status(), color[0], color[1], color[2], team[0], team[1], team[2]) + chatname + '\x00' + teamname + '\x00'
+    return _fmt.pack(verb, self.flags(), self.user_id, 40 + len(chatname) + len(teamname), self.away_status(), color[0], color[1], color[2], team[0], team[1], team[2]) + chatname + b'\x00' + teamname + b'\x00'
   
   def __cmp__(self, other):
     return cmp(other.flags(), self.flags()) or cmp(other.away_status(), self.away_status()) or cmp(self.user_id, other.user_id)
