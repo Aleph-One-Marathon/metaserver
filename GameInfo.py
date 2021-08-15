@@ -7,12 +7,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # Metaserver is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with Metaserver. If not, see <http://www.gnu.org/licenses/>.
 
@@ -42,4 +42,4 @@ class GameInfo:
       if self.start_time is not None:
         gametime -= time.time() - self.start_time
     
-    return _fmt.pack(self.game_id, socket.inet_aton(self.host), self.port, verb, gametime, self.user_id, len(game_data)) + game_data
+    return _fmt.pack(self.game_id, socket.inet_aton(self.host), self.port, verb, int(gametime), self.user_id, len(game_data)) + game_data

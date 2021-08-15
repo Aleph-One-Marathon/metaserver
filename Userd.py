@@ -76,8 +76,8 @@ class Userd(MetaProtocol):
       return False
     
     self.user_info.set_player_info(packet)
-    if packet.username == 'guest' or packet.username == '':
-      self.user_info.chatname = '|iGuest|p ' + packet.player_name
+    if packet.username == b'guest' or packet.username == b'':
+      self.user_info.chatname = b'|iGuest|p ' + packet.player_name
       self.state = self.NEED_VERSION
       self.sendPacket(AcceptPacket())
     else:
