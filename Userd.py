@@ -110,31 +110,31 @@ class Userd(MetaProtocol):
       deferred.addCallback(self.passwordTokenResult, packet.password)
       deferred.addErrback(self.passwordLookupFailure)
     else:
-      print("Authentication type not handled: %s" % self.seed_auth)
+      log.msg("Authentication type not handled: %s" % self.seed_auth)
       return False
     return True
   
   def passwordTokenResult(self, rs, saved_pw):
     if self.state != self.NEED_PWHASH:
-      print("Password lookup called in wrong context")
+      log.msg("Password lookup called in wrong context")
       self.transport.loseConnection()
       return
     if len(rs) < 1:
-      print("Username not found in database: %s" % self.user_info.username)
+      log.msg("Username not found in database: %s" % self.user_info.username)
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
     if rs[0][0] != saved_pw:
-      print("Password check failed for %s" % self.user_info.username)
+      log.msg("Password check failed for %s" % self.user_info.username)
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
     if not rs[0][1]:
-      print("Token out of date for %s" % self.user_info.username)
+      log.msg("Token out of date for %s" % self.user_info.username)
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
-    print("Password accepted for %s" % self.user_info.username)
+    log.msg("Password accepted for %s" % self.user_info.username)
     self.dbpool.runOperation("UPDATE user SET meta_login_token = NULL, meta_login_token_date = NULL WHERE BINARY username = %s", (self.user_info.username,))
     self.state = self.NEED_VERSION
     if rs[0][2]:
@@ -147,20 +147,20 @@ class Userd(MetaProtocol):
   
   def passwordLookupResult(self, rs, saved_pw):
     if self.state != self.NEED_PWHASH:
-      print("Password lookup called in wrong context")
+      log.msg("Password lookup called in wrong context")
       self.transport.loseConnection()
       return
     if len(rs) < 1:
-      print("Username not found in database: %s" % self.user_info.username)
+      log.msg("Username not found in database: %s" % self.user_info.username)
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
     if not bcrypt.checkpw(saved_pw.decode('mac_roman').encode('utf8'), rs[0][0].encode('utf8')):
-      print("Password check failed for %s" % self.user_info.username)
+      log.msg("Password check failed for %s" % self.user_info.username)
       self.sendMessage(MessagePacket.BAD_USER)
       self.transport.loseConnection()
       return
-    print("Password accepted for %s" % self.user_info.username)
+    log.msg("Password accepted for %s" % self.user_info.username)
     self.state = self.NEED_VERSION
     if rs[0][1]:
       self.user_info.visible = False
@@ -171,7 +171,7 @@ class Userd(MetaProtocol):
     self.sendPacket(AcceptPacket())
   
   def passwordLookupFailure(self, failure):
-    print("Password lookup failure:\n%s" % str(failure))
+    log.msg("Password lookup failure: %s" % str(failure))
     self.transport.loseConnection()
   
   def handleLocalizationPacket(self, packet):
