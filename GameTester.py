@@ -7,12 +7,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # Metaserver is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with Metaserver. If not, see <http://www.gnu.org/licenses/>.
 
@@ -40,8 +40,8 @@ class JoinerInfoPacket:
   
   def __init__(self, stream_id, player_name, version, color, team):
     self.data = self._fmt_start.pack(stream_id)
-    self.data += player_name + '\x00'
-    self.data += version + '\x00'
+    self.data += player_name + b'\x00'
+    self.data += version + b'\x00'
     self.data += self._fmt_end.pack(color, team)
 
 class JoinPlayerPacket:
@@ -60,11 +60,11 @@ class CapabilitiesPacket:
     offset = 0
     max = len(data) - 4
     while offset < max:
-      pos = data.find('\x00', offset, max)
+      pos = data.find(b'\x00', offset, max)
       if pos < 0:
         offset = max
       else:
-        key = data[offset:pos]
+        key = data[offset:pos].decode('mac_roman')
         val, = self._fmt_value.unpack_from(data, pos + 1)
         self.capabilities[key] = val
         offset = pos + 5
@@ -78,8 +78,8 @@ class AcceptJoinPacket:
     # accepted, dspAddress.host, dspAddress.port, ddpAddress.host, ddpAddress.port,
     # identifier, stream_id, net_dead, player_name, desired_color, team, color, serial_number
     self.data = self._fmt_start.pack(1, 0, 0, 0, 0, 0, 0, 0)
-    self.data += player_name + '\x00'
-    self.data += self._fmt_end.pack(0, 0, 0, '')
+    self.data += player_name + b'\x00'
+    self.data += self._fmt_end.pack(0, 0, 0, b'')
 
 class TopologyPacket:
   code = 705
@@ -166,7 +166,7 @@ class GameSessionPacket:
 ### connector
 class JoinerConnector(MetaProtocol):
 
-  _join_recv_packets = [ 
+  _join_recv_packets = [
       HelloPacket,
       CapabilitiesPacket,
       ServerWarningPacket,
@@ -188,7 +188,7 @@ class JoinerConnector(MetaProtocol):
   def __init__(self, tester):
     MetaProtocol.__init__(self)
     self.tester = tester
-    self.player_name = 'joinerbot'
+    self.player_name = b'joinerbot'
     self.color = 0
     self.team = 0
     self.connected = False
@@ -280,7 +280,6 @@ class GameConnector(DatagramProtocol):
     self.gather_port = port
 
   def startProtocol(self):
-#     self.transport.connect(self.gather_host, self.gather_port)
     self.ping_id = int(random.uniform(1, 65535))
     self.ping_failed = 0
     self.timeout = reactor.callLater(0.35, self.pingTimeout)
@@ -290,10 +289,15 @@ class GameConnector(DatagramProtocol):
     if self.ping_failed < 2:
       self.ping_failed += 1
       self.sendPing(self.ping_id)
-      reactor.callLater(0.35, self.pingTimeout)
+      self.timeout = reactor.callLater(0.35, self.pingTimeout)
     else:
+      self.stopRetrying()
       self.tester.gameConnectFailed(self)
-      self.transport.stopListening()
+
+  def stopRetrying(self):
+    if self.timeout:
+      self.timeout.cancel()
+      self.timeout = None
 
   def connectionRefused(self):
     self.tester.gameConnectFailed(self)
@@ -306,14 +310,16 @@ class GameConnector(DatagramProtocol):
     
     crc16 = crcmod.predefined.Crc('crc-ccitt-false')
     crc16.update(_magic)
-    crc16.update('\x00\x00')
+    crc16.update(b'\x00\x00')
     crc16.update(data[_dataOffset:])
     
     if crc16.crcValue != _crc:
+      self.stopRetrying()
       self.tester.gamePacketFailed(self, "CRC failed")
       return
     
-    if _magic != 'PR':
+    if _magic != b'PR':
+      self.stopRetrying()
       self.tester.gamePacketFailed(self, "bad packet type")
       return
     
@@ -321,22 +327,20 @@ class GameConnector(DatagramProtocol):
     _ping_id, = _fmt2.unpack_from(data, _dataOffset)
     
     if _ping_id != self.ping_id:
+      self.stopRetrying()
       self.tester.gamePacketFailed(self, "wrong ping ID")
       return
     
+    self.stopRetrying()
     self.tester.gamePingSucceeded(self)
-    if self.timeout:
-      self.timeout.cancel()
-      self.timeout = None
-    self.transport.stopListening()
  
   def sendPing(self, ping_id):
-    _magic = 'PQ'
+    _magic = b'PQ'
     _payload = struct.Struct('>H').pack(ping_id)
     
     crc16 = crcmod.predefined.Crc('crc-ccitt-false')
     crc16.update(_magic)
-    crc16.update('\x00\x00')
+    crc16.update(b'\x00\x00')
     crc16.update(_payload)
     _data = _magic + crc16.digest() + _payload
     
@@ -388,7 +392,7 @@ class GameTester:
   def joinDisconnected(self, connector, reason):
     if self.join_running:
       self._sendMessage("Bad response on TCP port %d." % (self.test_port))
-      self._sendMessage(reason)
+      self._sendMessage(reason.getErrorMessage())
       self._finished(False)
   
   def joinConnectSucceeded(self, connector):
