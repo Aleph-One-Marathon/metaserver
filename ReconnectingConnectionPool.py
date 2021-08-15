@@ -23,7 +23,10 @@ class ReconnectingConnectionPool(adbapi.ConnectionPool):
         try:
             return adbapi.ConnectionPool._runInteraction(self, interaction, *args, **kw)
         except pymysql.OperationalError as e:
-            if e[0] not in (2006, 2013):
+            # 1927: MariaDB: connection killed
+            # 2006: MySQL: server has gone away
+            # 2013: MySQL: lost connection during query
+            if e.args[0] not in (1927, 2006, 2013):
                 raise
             log.msg("RCP: got error %s, retrying operation" %(e))
             conn = self.connections.get(self.threadID())
