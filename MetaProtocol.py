@@ -19,6 +19,7 @@
 from twisted.internet.protocol import Protocol
 from twisted.protocols.policies import TimeoutMixin
 from twisted.python import log
+from twisted.internet.error import ConnectionDone
 from MetaPackets import *
 import pprint
 
@@ -41,7 +42,10 @@ class MetaProtocol(Protocol, TimeoutMixin):
     self.setTimeout(self.TIMEOUT)
   
   def connectionLost(self, reason):
-    log.msg("closed connection: %s" % reason)
+    if reason.type == ConnectionDone:
+      log.msg("closed connection")
+    else:
+      log.msg("lost connection: %s" % str(reason))
     self.setTimeout(None)
   
   def resetTimeout(self):
