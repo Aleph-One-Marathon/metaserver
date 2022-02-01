@@ -96,5 +96,8 @@ class UserInfo:
     
     return _fmt.pack(verb, self.flags(), self.user_id, 40 + len(chatname) + len(teamname), self.away_status(), color[0], color[1], color[2], team[0], team[1], team[2]) + chatname + b'\x00' + teamname + b'\x00'
   
-  def __cmp__(self, other):
-    return cmp(other.flags(), self.flags()) or cmp(other.away_status(), self.away_status()) or cmp(self.user_id, other.user_id)
+  def __eq__(self, other):
+    return self.user_id == other.user_id
+  
+  def __lt__(self, other):
+    return ((other.flags(), other.away_status(), self.user_id) < (self.flags(), self.away_status(), other.user_id))
