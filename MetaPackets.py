@@ -138,6 +138,12 @@ class LogoutPacket:
   def __init__(self, data):
     pass  # should be empty
 
+class RemoteHubRequestPacket:
+  code = 122
+
+  def __init__(self, data):
+    (self.network_version, stringlen) = unpack_strings(data)
+
 class RoomLoginPacket:
   code = 101
   _fmt = struct.Struct('>32s')
@@ -163,10 +169,10 @@ class PlayerModePacket:
 
 class CreateGamePacket:
   code = 104
-  _fmt = struct.Struct('>H2x')
+  _fmt = struct.Struct('>HH')
   
   def __init__(self, data):
-    self.port, = self._fmt.unpack_from(data)
+    self.port, self.remote_server_id = self._fmt.unpack_from(data)
     self.game_data = data[self._fmt.size:len(data)]
 
 class StartGamePacket:
@@ -234,6 +240,13 @@ class RoomListPacket:
   
   def __init__(self, host, port):
     self.data = self._fmt.pack(socket.inet_aton(host), port)
+    
+class RemoteHubListPacket:
+  code = 18
+  _fmt = struct.Struct('>H4sH')
+  
+  def __init__(self, remote_servers):
+    self.data = b''.join(self._fmt.pack(server_id, socket.inet_aton(host), port) for server_id, host, port in remote_servers)
 
 class RoomLoginSuccessfulPacket:
   code = 9
