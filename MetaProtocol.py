@@ -29,7 +29,7 @@ class MetaProtocol(Protocol, TimeoutMixin):
   MAX_LENGTH = 10240
   SIGNATURE = 0xDEAD
   _fmt = struct.Struct('>HHL')
-  _all_recv_packets = [ LoginPacket, PasswordResponsePacket, LocalizationPacket, LogoutPacket, RoomLoginPacket, PlayerDataPacket, PlayerModePacket, CreateGamePacket, StartGamePacket, RemoveGamePacket, IncomingChatPacket, IncomingPrivateMessagePacket, IncomingKeepAlivePacket ]
+  _all_recv_packets = [ LoginPacket, PasswordResponsePacket, RemoteHubRequestPacket, LocalizationPacket, LogoutPacket, RoomLoginPacket, PlayerDataPacket, PlayerModePacket, CreateGamePacket, StartGamePacket, RemoveGamePacket, IncomingChatPacket, IncomingPrivateMessagePacket, IncomingKeepAlivePacket ]
   
   def __init__(self):
 #     Protocol.__init__(self)

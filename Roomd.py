@@ -163,9 +163,18 @@ class Roomd(MetaProtocol):
     
     self.game_info.port = packet.port
     self.game_info.game_data = packet.game_data
+
+    if packet.remote_server_id > 0:
+      if any(game.remote_hub_id == packet.remote_server_id and game.game_id != self.game_info.game_id for game in self.globals['games'].values()):
+        log.msg("Unexpected situation detected. Found another advertised game already using the requested remote hub id %d" % packet.remote_server_id)
+        return False
+      deferred = self.dbpool.runQuery("SELECT host, port FROM remotehub WHERE id = %s", (packet.remote_server_id, ))
+      deferred.addCallback(lambda result: self.remoteCreateGameResult(result, packet.remote_server_id, verb))
+      deferred.addErrback(self.remoteCreateGameFailure)
+    else:
+      # announce game to everyone
+      self.sendGameList(self.game_info.game_id, 0, verb)
     
-    # announce game to everyone
-    self.sendGameList(self.game_info.game_id, 0, verb)
     return True
   
   def handleStartGamePacket(self, packet):
@@ -304,6 +313,33 @@ class Roomd(MetaProtocol):
           conn = info.roomd_connection
           if conn is not None and not conn.deaf:
             conn.sendPacket(packet)
+            
+  def remoteCreateGameResult(self, rs, server_id, verb):
+    if self.state != self.LOGGED_IN:
+      log.msg("Remote hub create game in wrong context")
+      self.transport.loseConnection()
+      return
+  
+    if len(rs) != 1:
+      log.msg("Found %d remote servers in database for id %d. Was expecting 1." % (len(rs), server_id))
+      self.transport.loseConnection()
+      return
+  
+    try:
+      ipaddress = socket.gethostbyname(rs[0][0])
+    except:
+      log.msg("Can't resolve remote hub address anymore from host %s" % rs[0][0])
+      self.transport.loseConnection()
+      return
+  
+    self.game_info.host = ipaddress
+    self.game_info.port = rs[0][1]
+    self.game_info.remote_hub_id = server_id
+    self.sendGameList(self.game_info.game_id, 0, verb)
+    
+  def remoteCreateGameFailure(self, failure):
+    log.msg("Remote hub lookup failure: %s" % str(failure))
+    self.transport.loseConnection()
 
   def logChat(self, message):
     if self.log_chat:

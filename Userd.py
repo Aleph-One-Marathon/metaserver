@@ -66,9 +66,21 @@ class Userd(MetaProtocol):
       return self.handlePasswordResponsePacket(packet)
     if isinstance(packet, LocalizationPacket):
       return self.handleLocalizationPacket(packet)
+    if isinstance(packet, RemoteHubRequestPacket):
+      return self.handleRemoteHubRequestPacket(packet)  
     if isinstance(packet, LogoutPacket):
       return self.handleLogoutPacket(packet)
     return False
+  
+  def handleRemoteHubRequestPacket(self, packet):
+    if self.state != self.LOGGED_IN:
+      self.sendMessage(MessagePacket.SYNTAX_ERROR)
+      return False
+    
+    deferred = self.dbpool.runQuery("SELECT id, host, port FROM remotehub WHERE network_version = %s", (packet.network_version, ))
+    deferred.addCallback(self.remoteHubLookupResult)
+    deferred.addErrback(self.remoteHubLookupFailure)
+    return True
   
   def handleLoginPacket(self, packet):
     if self.state != self.NEED_LOGIN:
@@ -172,6 +184,31 @@ class Userd(MetaProtocol):
   
   def passwordLookupFailure(self, failure):
     log.msg("Password lookup failure: %s" % str(failure))
+    self.transport.loseConnection()
+
+  def remoteHubLookupResult(self, rs):
+    if self.state != self.LOGGED_IN:
+      log.msg("Remote hub request lookup called in wrong context")
+      self.transport.loseConnection()
+      return
+
+    games = self.globals['games'].values()
+    remote_servers = []
+    
+    for server_row in rs:
+      if any(game.remote_hub_id == server_row[0] for game in games):
+        continue
+      try:
+        ipaddress = socket.gethostbyname(server_row[1])
+      except:
+        log.msg("Can't resolve remote hub address from host %s" % server_row[1])
+        continue
+      remote_servers.append((server_row[0], ipaddress, server_row[2]))
+      
+    self.sendPacket(RemoteHubListPacket(remote_servers))
+    
+  def remoteHubLookupFailure(self, failure):
+    log.msg("Remote hub lookup failure: %s" % str(failure))
     self.transport.loseConnection()
   
   def handleLocalizationPacket(self, packet):

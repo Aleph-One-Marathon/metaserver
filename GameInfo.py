@@ -31,6 +31,7 @@ class GameInfo:
     self.port = None
     self.visible = True
     self.game_data = None
+    self.remote_hub_id = None
     
   def dataChunk(self, verb):
     _fmt = struct.Struct('>L4sHBxlLH10x')
