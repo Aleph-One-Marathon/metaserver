@@ -322,6 +322,11 @@ class Roomd(MetaProtocol):
       self.transport.loseConnection()
       return
   
+    if any(game.remote_hub_id == server_id and game.game_id != self.game_info.game_id for game in self.globals['games'].values()):
+      log.msg("Unexpected situation detected. Found another advertised game already using the requested remote hub id %s" % server_id)
+      self.transport.loseConnection()
+      return
+  
     try:
         ipaddress = socket.gethostbyname(rs[0][0])
     except:
