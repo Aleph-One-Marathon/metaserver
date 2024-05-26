@@ -321,7 +321,7 @@ class Roomd(MetaProtocol):
       return
   
     if len(rs) != 1:
-      log.msg("Found % remote servers in database for id %s. Was expecting 1." % len(rs), server_id)
+      log.msg("Found %d remote servers in database for id %d. Was expecting 1." % (len(rs), server_id))
       self.transport.loseConnection()
       return
   
