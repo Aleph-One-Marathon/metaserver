@@ -88,8 +88,11 @@ class UserInfo:
     chatname = self.chatname
     teamname = self.teamname()
 
-    color = self.player_info.player_color
-    team = self.player_info.team_color
+    color = [ 0, 0, 0 ]
+    team = [ 0, 0, 0 ]
+    if self.player_info is not None:
+      color = self.player_info.player_color
+      team = self.player_info.team_color
     
     if not self.in_game and self.afk is not None:
       chatname = b'|i' + self.afk + b'|p-' + chatname
