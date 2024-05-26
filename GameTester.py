@@ -286,6 +286,7 @@ class GameConnector(DatagramProtocol):
     self.sendPing(self.ping_id)
   
   def pingTimeout(self):
+    self.timeout = None
     if self.ping_failed < 2:
       self.ping_failed += 1
       self.sendPing(self.ping_id)
