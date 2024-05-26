@@ -326,11 +326,11 @@ class Roomd(MetaProtocol):
       return
   
     try:
-        ipaddress = socket.gethostbyname(rs[0][0])
+      ipaddress = socket.gethostbyname(rs[0][0])
     except:
-        log.msg("Can't resolve remote hub address anymore from host %s" % rs[0][0])
-        self.transport.loseConnection()
-        return
+      log.msg("Can't resolve remote hub address anymore from host %s" % rs[0][0])
+      self.transport.loseConnection()
+      return
   
     self.game_info.host = ipaddress
     self.game_info.port = rs[0][1]
