@@ -165,6 +165,9 @@ class Roomd(MetaProtocol):
     self.game_info.game_data = packet.game_data
 
     if packet.remote_server_id > 0:
+      if any(game.remote_hub_id == packet.remote_server_id and game.game_id != self.game_info.game_id for game in self.globals['games'].values()):
+        log.msg("Unexpected situation detected. Found another advertised game already using the requested remote hub id %d" % packet.remote_server_id)
+        return False
       deferred = self.dbpool.runQuery("SELECT host, port FROM remotehub WHERE id = %s", (packet.remote_server_id, ))
       deferred.addCallback(lambda result: self.remoteCreateGameResult(result, packet.remote_server_id, verb))
       deferred.addErrback(self.remoteCreateGameFailure)
@@ -319,11 +322,6 @@ class Roomd(MetaProtocol):
   
     if len(rs) != 1:
       log.msg("Found % remote servers in database for id %s. Was expecting 1." % len(rs), server_id)
-      self.transport.loseConnection()
-      return
-  
-    if any(game.remote_hub_id == server_id and game.game_id != self.game_info.game_id for game in self.globals['games'].values()):
-      log.msg("Unexpected situation detected. Found another advertised game already using the requested remote hub id %s" % server_id)
       self.transport.loseConnection()
       return
   
