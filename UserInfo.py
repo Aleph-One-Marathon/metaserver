@@ -86,6 +86,8 @@ class UserInfo:
     _fmt = struct.Struct('>HH4xL6xH6xHHHH2xHHH20x')
     
     chatname = self.chatname
+    if chatname is None:
+      chatname = b'|iUnknown|p'
     teamname = self.teamname()
 
     color = [ 0, 0, 0 ]
