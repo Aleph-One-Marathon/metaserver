@@ -196,17 +196,14 @@ class Userd(MetaProtocol):
     remote_servers = []
     
     for server_row in rs:
-        
-        if any(game.remote_hub_id == server_row[0] for game in games):
-          continue
-
-        try:
-            ipaddress = socket.gethostbyname(server_row[1])
-        except:
-            log.msg("Can't resolve remote hub address from host %s" % server_row[1])
-            continue
-        
-        remote_servers.append((server_row[0], ipaddress, server_row[2]))
+      if any(game.remote_hub_id == server_row[0] for game in games):
+        continue
+      try:
+        ipaddress = socket.gethostbyname(server_row[1])
+      except:
+        log.msg("Can't resolve remote hub address from host %s" % server_row[1])
+        continue
+      remote_servers.append((server_row[0], ipaddress, server_row[2]))
       
     self.sendPacket(RemoteHubListPacket(remote_servers))
     
