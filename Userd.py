@@ -236,7 +236,7 @@ class Userd(MetaProtocol):
         reactor.callLater(self.TOKEN_TIMEOUT, self.factory.expireToken, token)
       else:
         self.factory.expireToken(token)
-        self.factory.cleanUser(self.user_id)
+      self.factory.cleanUser(self.user_id)
     self.factory.debugGlobals()
 
 class UserdFactory(Factory):
