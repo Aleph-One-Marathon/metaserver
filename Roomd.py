@@ -232,7 +232,7 @@ class Roomd(MetaProtocol):
       self.sendMessage(MessagePacket.SYNTAX_ERROR)
       return False
     self.userActive()
-    if packet.target_id not in self.globals['users'] or self.globals['users'][packet.target_id].roomd_connection is None:
+    if not self.isUserIdVisible(packet.target_id):
       self.sendMessage(MessagePacket.NOT_IN_ROOM)
       return True
     
@@ -240,9 +240,8 @@ class Roomd(MetaProtocol):
     if trimmed != '':
       if not self.handleChatCommand(trimmed, self.globals['users'][packet.target_id]):
         out = OutgoingPrivateMessagePacket(self.user_info, packet.target_id, trimmed)
-        target = self.globals['users'][packet.target_id].roomd_connection
-        if not target.deaf:
-          target.sendPacket(out)
+        if self.isUserIdListening(packet.target_id):
+          self.globals['users'][packet.target_id].roomd_connection.sendPacket(out)
           self.logPM(self.globals['users'][packet.target_id], trimmed)
         if packet.echo and not self.deaf:
           self.sendPacket(out)
@@ -279,7 +278,14 @@ class Roomd(MetaProtocol):
     self.sendPacketToRoom(RoomMessagePacket(message.encode('mac_roman')))
 
   def sendPlayerList(self, send, recip, verb):
-    send_list = self.buildSendList('users', send)
+    send_list = []
+    if send > 0:
+      if self.isUserIdVisible(send):
+        send_list.append(self.globals['users'][send])
+    else:
+      for info in self.visibleUsersInRoom():
+        if not info.user_id == (0 - send):
+          send_list.append(info)
     if len(send_list) > 0:
       self.sendPacketToRoom(PlayerListPacket(send_list, verb), recip)
   
@@ -303,16 +309,12 @@ class Roomd(MetaProtocol):
     if packet is None:
       return False
     if recip > 0:
-      if recip in self.globals['users']:
-        conn = self.globals['users'][recip].roomd_connection
-        if conn is not None and not conn.deaf:
-          conn.sendPacket(packet)
+      if self.isUserIdListening(recip):
+        self.globals['users'][recip].roomd_connection.sendPacket(packet)
     else:
-      for user_id, info in self.globals['users'].items():
-        if not user_id == (0 - recip):
-          conn = info.roomd_connection
-          if conn is not None and not conn.deaf:
-            conn.sendPacket(packet)
+      for info in self.listeningUsersInRoom():
+        if not info.user_id == (0 - recip):
+          info.roomd_connection.sendPacket(packet)
             
   def remoteCreateGameResult(self, rs, server_id, verb):
     if self.state != self.LOGGED_IN:
@@ -434,6 +436,27 @@ class Roomd(MetaProtocol):
   def reportDbError(self, failure):
     log.msg("Database failure: %s" % str(failure))
   
+  def isUserIdVisible(self, user_id):
+    if user_id in self.globals['users']:
+      info = self.globals['users'][user_id]
+      conn = info.roomd_connection
+      if conn and conn.state == self.LOGGED_IN and info.visible:
+        return True
+    return False
+
+  def isUserIdListening(self, user_id):
+    if user_id in self.globals['users']:
+      conn = self.globals['users'][user_id].roomd_connection
+      if conn and conn.state == self.LOGGED_IN and not conn.deaf:
+        return True
+    return False
+
+  def visibleUsersInRoom(self):
+    return list(filter(lambda info: info.roomd_connection and info.roomd_connection.state == self.LOGGED_IN and info.visible, list(self.globals['users'].values())))
+
+  def listeningUsersInRoom(self):
+    return list(filter(lambda info: info.roomd_connection and info.roomd_connection.state == self.LOGGED_IN and not info.roomd_connection.deaf, list(self.globals['users'].values())))
+
   def userActive(self):
     if self.user_info.afk is not None:
       self.user_info.afk = None
@@ -547,20 +570,17 @@ class Roomd(MetaProtocol):
       # check if any moderators are still in the room; count visible users
       cancel = True
       num_users = 0
-      for user_info in list(self.globals['users'].values()):
+      for user_info in self.visibleUsersInRoom():
         if user_info.moderator:
           cancel = False
-        if user_info.visible:
-          num_users += 1
+        num_users += 1
       if cancel:
         self.globals['rainbow'] = None
         self.resetColors()
         return
     
       index = 0
-      for user_info in sorted(self.globals['users'].values()):
-        if not user_info.visible:
-          continue
+      for user_info in sorted(self.visibleUsersInRoom()):
         color1 = UserInfo.rainbow_for_pos(index, num_users)
         color2 = UserInfo.rainbow_for_pos(index + 1, num_users)
         if user_info.player_info.player_color != color1:
@@ -576,7 +596,7 @@ class Roomd(MetaProtocol):
       
   def resetColors(self):
     changed = False
-    for user_info in list(self.globals['users'].values()):
+    for user_info in self.visibleUsersInRoom():
       if user_info.player_info.player_color != user_info.original_player_color:
         user_info.player_info.player_color = user_info.original_player_color
         changed = True
