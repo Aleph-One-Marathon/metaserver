@@ -280,7 +280,7 @@ class Roomd(MetaProtocol):
   def sendPlayerList(self, send, recip, verb):
     send_list = []
     if send > 0:
-      if self.isUserIdVisible(send):
+      if self.isUserIdVisible(send) or verb == self.VERB_DELETE:
         send_list.append(self.globals['users'][send])
     else:
       for info in self.visibleUsersInRoom():
